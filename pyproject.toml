@@ -25,7 +25,7 @@ numpy = "^1.21.0"
 aioimaplib = "^1.0.0"
 aiosmtplib = "^2.0.1"
 aiohttp = "^3.8.1"
-sphinx = "^4.3.2"
+sphinx = "^6.2.1"
 sphinx-rtd-theme = "^1.0.0"
 
 [tool.poetry.dev-dependencies]
