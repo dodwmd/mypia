@@ -3,9 +3,10 @@ import os
 from logging.handlers import RotatingFileHandler
 
 def setup_logging(log_level=logging.INFO):
-    # Create logs directory if it doesn't exist
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
+    # Use /tmp directory for logs
+    log_dir = '/tmp/mypia_logs'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
 
     # Set up root logger
     logger = logging.getLogger()
@@ -16,7 +17,7 @@ def setup_logging(log_level=logging.INFO):
     console_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
     # File handler (info level and above)
-    file_handler = RotatingFileHandler('logs/mypia.log', maxBytes=10*1024*1024, backupCount=5)
+    file_handler = RotatingFileHandler(os.path.join(log_dir, 'mypia.log'), maxBytes=10*1024*1024, backupCount=5)
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(file_formatter)
 
@@ -26,7 +27,7 @@ def setup_logging(log_level=logging.INFO):
     console_handler.setFormatter(console_formatter)
 
     # Error file handler (error level and above)
-    error_file_handler = RotatingFileHandler('logs/error.log', maxBytes=10*1024*1024, backupCount=5)
+    error_file_handler = RotatingFileHandler(os.path.join(log_dir, 'error.log'), maxBytes=10*1024*1024, backupCount=5)
     error_file_handler.setLevel(logging.ERROR)
     error_file_handler.setFormatter(file_formatter)
 
