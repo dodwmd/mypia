@@ -334,3 +334,172 @@ After setting up the project, you can use the following commands:
     ```
     poetry run mypia github review-pr-with-automation "owner/repo" 123
     ```
+
+53. Create a new user:
+    ```
+    poetry run mypia db create-user --username "john_doe" --email "john@example.com"
+    ```
+
+54. Create a new task for a user:
+    ```
+    poetry run mypia db create-task 1 --title "Complete project" --description "Finish the AI assistant project"
+    ```
+
+55. Update the status of a task:
+    ```
+    poetry run mypia db update-task-status 1 completed
+    ```
+
+56. Set a user preference:
+    ```
+    poetry run mypia db set-preference 1 --key "theme" --value "dark"
+    ```
+
+57. Get a user preference:
+    ```
+    poetry run mypia db get-preference 1 theme
+    ```
+
+58. Get a user:
+    ```
+    poetry run mypia db get-user <user_id>
+    ```
+
+59. Update a user:
+    ```
+    poetry run mypia db update-user <user_id> --username "new_username" --email "new_email@example.com"
+    ```
+
+60. Delete a user:
+    ```
+    poetry run mypia db delete-user <user_id>
+    ```
+
+61. Get a task:
+    ```
+    poetry run mypia db get-task <task_id>
+    ```
+
+62. Update a task:
+    ```
+    poetry run mypia db update-task <task_id> --title "New title" --status "in_progress"
+    ```
+
+63. Delete a task:
+    ```
+    poetry run mypia db delete-task <task_id>
+    ```
+
+64. List user tasks:
+    ```
+    poetry run mypia db list-user-tasks <user_id> --status "pending"
+    ```
+
+65. Set a user preference:
+    ```
+    poetry run mypia db set-preference <user_id> --key "theme" --value "dark"
+    ```
+
+66. Get a user preference:
+    ```
+    poetry run mypia db get-preference <user_id> theme
+    ```
+
+67. Delete a user preference:
+    ```
+    poetry run mypia db delete-preference <user_id> theme
+    ```
+
+68. Delete all user preferences:
+    ```
+    poetry run mypia db delete-all-preferences <user_id>
+    ```
+
+69. Log an email:
+    ```
+    poetry run mypia db log-email <user_id> --subject "Meeting reminder" --sender "boss@example.com" --recipient "john@example.com" --is_sent false
+    ```
+
+70. Get email logs:
+    ```
+    poetry run mypia db get-email-logs <user_id> --limit 5
+    ```
+
+71. Set a user preference:
+    ```
+    poetry run mypia preferences set-preference <user_id> <key> <value>
+    ```
+
+72. Get a user preference:
+    ```
+    poetry run mypia preferences get-preference <user_id> <key>
+    ```
+
+73. List all preferences for a user:
+    ```
+    poetry run mypia preferences list-preferences <user_id>
+    ```
+
+74. Delete a user preference:
+    ```
+    poetry run mypia preferences delete-preference <user_id> <key>
+    ```
+
+75. Delete all preferences for a user:
+    ```
+    poetry run mypia preferences delete-all-preferences <user_id>
+    ```
+
+76. Start Celery worker:
+    ```
+    poetry run mypia celery start-worker
+    ```
+
+77. Start Celery beat scheduler:
+    ```
+    poetry run mypia celery start-beat
+    ```
+
+78. Manually trigger email checking task:
+    ```
+    poetry run mypia celery check-emails
+    ```
+
+79. Manually trigger calendar sync task:
+    ```
+    poetry run mypia celery sync-calendar
+    ```
+
+80. Analyze text using spaCy:
+        poetry run mypia nlp analyze "Your text goes here"
+    ```
+
+81. Extract named entities from text:
+    ```
+    poetry run mypia nlp entities "Apple Inc. was founded by Steve Jobs in Cupertino, California."
+    ```
+
+82. Extract noun chunks from text:
+    ```
+    poetry run mypia nlp noun-chunks "The quick brown fox jumps over the lazy dog."
+    ```
+
+83. Extract sentences from text:
+    ```
+    poetry run mypia nlp sentences "This is the first sentence. This is the second one. And here's the third!"
+    ```
+
+84. Find similar words:
+    ```
+    poetry run mypia nlp similar-words "computer" --n 5
+    ```
+
+85. Get word vector:
+    ```
+    poetry run mypia nlp word-vector "artificial"
+    ```
+
+48. List issues in a GitHub repository:
+    ```
+    poetry run mypia github list-issues "owner/repo" --state open
+    ```

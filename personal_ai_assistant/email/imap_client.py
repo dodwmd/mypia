@@ -9,6 +9,7 @@ import email.utils
 import datetime
 import aiosmtplib
 from personal_ai_assistant.llm.text_processor import TextProcessor
+from personal_ai_assistant.config import encryption_manager
 
 class EmailClient:
     def __init__(self, imap_host: str, smtp_host: str, username: str, password: str, imap_use_ssl: bool = True, smtp_use_tls: bool = True, text_processor: TextProcessor = None):
@@ -66,10 +67,10 @@ class EmailClient:
 
             emails.append({
                 'uid': num.decode(),
-                'subject': subject,
-                'from': from_,
+                'subject': encryption_manager.encrypt(subject),
+                'from': encryption_manager.encrypt(from_),
                 'date': date,
-                'content': content
+                'content': encryption_manager.encrypt(content)
             })
 
         return emails
@@ -102,10 +103,10 @@ class EmailClient:
 
             emails.append({
                 'uid': num.decode(),
-                'subject': subject,
-                'from': from_,
+                'subject': encryption_manager.encrypt(subject),
+                'from': encryption_manager.encrypt(from_),
                 'date': date,
-                'content': content
+                'content': encryption_manager.encrypt(content)
             })
 
         return emails
@@ -125,13 +126,14 @@ class EmailClient:
         msg = MIMEMultipart()
         msg['From'] = self.username
         msg['To'] = to
-        msg['Subject'] = subject
+        msg['Subject'] = encryption_manager.encrypt(subject)
         if cc:
             msg['Cc'] = cc
         if bcc:
             msg['Bcc'] = bcc
 
-        msg.attach(MIMEText(body, 'plain'))
+        encrypted_body = encryption_manager.encrypt(body)
+        msg.attach(MIMEText(encrypted_body, 'plain'))
 
         recipients = [to]
         if cc:
