@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     email_use_ssl: bool = True
     smtp_host: str = "smtp.example.com"
     smtp_use_tls: bool = True
+    caldav_url: str = "https://example.com/caldav"
+    caldav_username: str = "your_username"
+    caldav_password: str = "your_password"
 
     class Config:
         env_file = ".env"

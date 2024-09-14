@@ -199,3 +199,138 @@ After setting up the project, you can use the following commands:
     ```
     poetry run mypia watch-emails-with-summary "collection_name" --interval 60 --max-length 50
     ```
+
+26. List available calendars:
+    ```
+    poetry run mypia list-calendars
+    ```
+
+27. List events in a calendar:
+    ```
+    poetry run mypia list-events "calendar_name" --days 7
+    ```
+
+28. Create a new event:
+    ```
+    poetry run mypia create-event "calendar_name" --summary "Meeting" --start "2023-06-01 14:00" --end "2023-06-01 15:00" --description "Team meeting"
+    ```
+
+29. Update an existing event:
+    ```
+    poetry run mypia update-event "calendar_name" "event_id" --summary "Updated Meeting" --start "2023-06-01 14:30" --end "2023-06-01 15:30"
+    ```
+
+30. Delete an event:
+    ```
+    poetry run mypia delete-event "calendar_name" "event_id"
+    ```
+
+31. Ingest past calendar events:
+    ```
+    poetry run mypia ingest-past-events "calendar_name" "collection_name" --days 30
+    ```
+
+32. Ingest future calendar events:
+    ```
+    poetry run mypia ingest-future-events "calendar_name" "collection_name" --days 30
+    ```
+
+33. Ingest all calendar events (past and future):
+    ```
+    poetry run mypia ingest-all-events "calendar_name" "collection_name" --past-days 30 --future-days 30
+    ```
+
+34. Add a calendar task:
+    ```
+    poetry run mypia task add-calendar-task --title "Team Meeting" --description "Weekly team sync" --start-time "2023-06-01 14:00" --end-time "2023-06-01 15:00" --location "Conference Room A"
+    ```
+
+35. Add an email task:
+    ```
+    poetry run mypia task add-email-task --title "Send Report" --description "Send weekly report to manager" --recipient "manager@example.com" --subject "Weekly Report" --body "Please find attached the weekly report."
+    ```
+
+36. List all tasks:
+    ```
+    poetry run mypia task list-tasks
+    ```
+
+37. Execute a specific task:
+    ```
+    poetry run mypia task execute-task <task_id>
+    ```
+
+38. Remove a specific task:
+    ```
+    poetry run mypia task remove-task <task_id>
+    ```
+
+39. Add a web lookup task:
+    ```
+    poetry run mypia task add-web-lookup-task --title "Research AI trends" --description "Look up latest AI trends" --url "https://example.com/ai-trends"
+    ```
+
+40. Add a GitHub PR review task:
+    ```
+    poetry run mypia task add-github-pr-review-task --title "Review PR #123" --description "Review pull request for new feature" --pr-url "https://github.com/user/repo/pull/123" --github-token "your_github_token"
+    ```
+
+41. Add a general information lookup task:
+    ```
+    poetry run mypia task add-general-info-lookup-task --title "Weather forecast" --description "Get weather forecast for the week" --query "What's the weather forecast for New York City this week?"
+    ```
+
+42. Scrape content from a web page:
+    ```
+    poetry run mypia scrape-web "https://example.com" --summarize
+    ```
+
+43. Process and analyze a web page:
+    ```
+    poetry run mypia web process-url "https://example.com"
+    ```
+
+44. Compare two web pages:
+    ```
+    poetry run mypia web compare-urls "https://example1.com" "https://example2.com"
+    ```
+
+45. Analyze a topic by processing multiple web pages:
+    ```
+    poetry run mypia web analyze-topic "artificial intelligence" --num-urls 5
+    ```
+
+46. Review a GitHub Pull Request:
+    ```
+    poetry run mypia github review-pr "owner/repo" 123
+    ```
+
+47. Get details of a GitHub Pull Request:
+    ```
+    poetry run mypia github get-pr-details "owner/repo" 123
+    ```
+
+48. List issues in a GitHub repository:
+    ```
+    poetry run mypia github list-issues "owner/repo" --state open
+    ```
+
+49. Create a new issue in a GitHub repository:
+    ```
+    poetry run mypia github create-issue "owner/repo" --title "New issue" --body "Issue description"
+    ```
+
+50. Get statistics for a GitHub repository:
+    ```
+    poetry run mypia github repo-stats "owner/repo"
+    ```
+
+51. Review a GitHub Pull Request with action log parsing and fix suggestions:
+    ```
+    poetry run mypia github review-pr-with-fixes "owner/repo" 123
+    ```
+
+52. Review a GitHub Pull Request with automated updates and responses:
+    ```
+    poetry run mypia github review-pr-with-automation "owner/repo" 123
+    ```
