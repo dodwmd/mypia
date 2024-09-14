@@ -7,7 +7,7 @@ This project aims to create a personal AI assistant that uses public LLMs and a 
 
 Name: Michael Dodwell
 Email: michael@dodwell.us
-Github: https://github.com/dodwmd/mypia
+Project Home: https://github.com/dodwmd/mypia
 
 ## Core Functionality
 1. CLI-based interface (with future plans for API and web interface)

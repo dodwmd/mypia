@@ -1,30 +1,29 @@
-FROM python:3.9-slim
-
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+FROM continuumio/miniconda3:latest
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
     build-essential \
-    curl \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
-    rm Miniconda3-latest-Linux-x86_64.sh
-ENV PATH="/opt/conda/bin:${PATH}"
-
+# Copy environment.yml and create conda environment
 COPY config/environment.yml .
 RUN conda env create -f environment.yml
 
-RUN curl -sSL https://install.python-poetry.org | python3 -
+# Install poetry
+RUN conda run -n mypia pip install poetry==1.4.2
 
+# Copy pyproject.toml and poetry.lock* (if exists)
 COPY pyproject.toml poetry.lock* ./
 
-RUN poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi
+# Install project dependencies
+RUN conda run -n mypia poetry config virtualenvs.create false \
+    && conda run -n mypia poetry install --no-interaction --no-ansi
 
+# Copy the rest of the application code
 COPY . .
 
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "mypia", "poetry", "run", "ai-assistant"]
+# Set the entrypoint to run the CLI
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "mypia", "poetry", "run", "mypia"]

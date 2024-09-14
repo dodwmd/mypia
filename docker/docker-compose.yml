@@ -7,8 +7,10 @@ services:
       dockerfile: docker/Dockerfile
     volumes:
       - ..:/app
+      - /path/to/your/llama/models:/app/models
     environment:
       - DEBUG=True
+      - LLM_MODEL_PATH=/app/models/your_model.bin
     command: hello
     depends_on:
       - redis
