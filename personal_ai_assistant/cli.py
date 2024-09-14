@@ -18,7 +18,15 @@ from personal_ai_assistant.web.scraper import WebContentProcessor
 from personal_ai_assistant.github.github_client import GitHubClient
 from personal_ai_assistant.database.db_manager import DatabaseManager
 from personal_ai_assistant.celery_app import app as celery_app
-from personal_ai_assistant.tasks import check_and_process_new_emails, sync_calendar_events
+from personal_ai_assistant.tasks import (
+    check_and_process_new_emails,
+    sync_calendar_events,
+    clean_up_old_emails,
+    update_task_statuses,
+    generate_daily_summary,
+    check_for_updates,
+    create_periodic_backup
+)
 from personal_ai_assistant.nlp.spacy_processor import SpacyProcessor
 from personal_ai_assistant.utils.logging_config import setup_logging
 from personal_ai_assistant.utils.exceptions import MyPIAException
