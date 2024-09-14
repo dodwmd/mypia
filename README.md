@@ -1,6 +1,6 @@
 # MyPIA (My Personal Intelligent Assistant)
 
-![CI](https://github.com/<username>/<repository>/workflows/CI/badge.svg)
+![CI](https://github.com/dodwmd/mypia/workflows/CI/badge.svg)
 
 A personal AI assistant that uses public LLMs and a locally hosted vector database, prioritizing user data privacy.
 
