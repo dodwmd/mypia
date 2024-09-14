@@ -3,7 +3,6 @@ name = "mypia"
 version = "0.1.0"
 description = "My Personal Intelligent Assistant"
 authors = ["Michael <1372930+dodwmd@users.noreply.github.com>"]
-package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.9"
