@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     redis_url: SecretStr
     github_token: SecretStr
     encryption_password: SecretStr
-
+    
     # Update settings
     version: str = "0.1.0"
     update_url: str = "https://api.mypia.com/updates"
