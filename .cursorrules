@@ -1,0 +1,150 @@
+# MyPIA (My Personal Intelligent Assistant) Project Rules
+
+# General Python Rules
+python:
+  version: "3.9+"
+  style_guide: "PEP 8"
+  additional_style: "Google Python Style Guide"
+  max_line_length: 79
+  docstring_style: "Google"
+  type_hints: required
+
+# Code Organization
+organization:
+  imports:
+    order:
+      - standard_library
+      - third_party
+      - local_application
+  absolute_imports: preferred
+
+# Naming Conventions
+naming:
+  functions: lowercase_with_underscores
+  variables: lowercase_with_underscores
+  classes: CapitalizedWords
+  constants: ALL_CAPS_WITH_UNDERSCORES
+  protected_attributes: _single_leading_underscore
+  private_attributes: __double_leading_underscore
+
+# Error Handling
+error_handling:
+  use_explicit_exceptions: true
+  avoid_bare_except: true
+  custom_exceptions:
+    base_class: MyPIAException
+
+# Testing
+testing:
+  framework: pytest
+  coverage_tool: pytest-cov
+  minimum_coverage: 80%
+  test_file_naming: test_*.py
+
+# Documentation
+documentation:
+  use_docstrings: true
+  readme: required
+  api_documentation: required
+  user_guide: required
+
+# Version Control
+version_control:
+  system: git
+  branching_strategy: GitHub Flow
+  commit_messages: "Conventional Commits"
+
+# Dependency Management
+dependency_management:
+  tool: poetry
+
+# Code Quality Tools
+code_quality:
+  linter: flake8
+  formatter: black
+  type_checker: mypy
+  import_sorter: isort
+
+# Asynchronous Programming
+async:
+  preferred_library: asyncio
+  event_loop: "use in main application entry points"
+
+# Database
+database:
+  orm: SQLAlchemy
+  migrations: Alembic
+
+# API
+api:
+  style: RESTful
+  documentation: OpenAPI/Swagger
+
+# Security
+security:
+  encrypt_sensitive_data: true
+  use_environment_variables: true
+  token_based_authentication: JWT
+
+# Logging
+logging:
+  use_structured_logging: true
+  log_levels:
+    - DEBUG
+    - INFO
+    - WARNING
+    - ERROR
+    - CRITICAL
+
+# Performance
+performance:
+  use_caching: true
+  caching_backend: Redis
+  profile_code: "use cProfile and memory_profiler"
+
+# AI/ML
+ai_ml:
+  text_processing: spaCy
+  embeddings: sentence-transformers
+  vector_database: ChromaDB
+  llm: llama.cpp
+
+# Task Queue
+task_queue:
+  system: Celery
+  broker: Redis
+
+# Continuous Integration
+ci:
+  system: GitHub Actions
+  run_on:
+    - push
+    - pull_request
+
+# Deployment
+deployment:
+  containerization: Docker
+  orchestration: docker-compose
+
+# Backup
+backup:
+  frequency: daily
+  retention: 30 days
+
+# Updates
+updates:
+  check_frequency: daily
+  auto_update: false
+
+# Project-Specific Rules
+mypia_specific:
+  - Use the `settings` object from `config.py` for all configuration values
+  - Implement offline functionality wherever possible
+  - Use the `EncryptionManager` for handling sensitive data
+  - Implement proper error handling and logging in all modules
+  - Use the `SyncManager` for synchronizing data when internet connection is restored
+  - Implement caching strategies using the `cache` decorator from `utils/cache.py`
+  - Use `BackupManager` for creating and restoring backups
+  - Implement proper authentication and authorization using `AuthManager`
+  - Use `UpdateManager` for checking and applying updates
+  - Follow the single-user design with considerations for potential multi-user scaling
