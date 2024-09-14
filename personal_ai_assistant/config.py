@@ -25,6 +25,19 @@ class Settings(BaseSettings):
     github_token: SecretStr
     encryption_password: SecretStr
 
+    # Update settings
+    version: str = "0.1.0"
+    update_url: str = "https://api.mypia.com/updates"
+    model_dir: str = "./models"
+
+    # Backup settings
+    backup_dir: str = "./backups"
+
+    # Multi-user settings
+    enable_multi_user: bool = False
+    max_users: int = 1
+    user_registration_open: bool = False
+
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'

@@ -7,6 +7,8 @@ from personal_ai_assistant.config import settings
 import asyncio
 import datetime
 import timedelta
+from personal_ai_assistant.updater.update_manager import run_update_check
+from personal_ai_assistant.utils.backup_manager import BackupManager
 
 @app.task
 def check_and_process_new_emails():
@@ -102,3 +104,15 @@ def generate_daily_summary():
 
     # Store the summary in the database or send it via email
     db_manager.store_daily_summary(summary)
+
+@app.task
+def check_for_updates():
+    asyncio.run(run_update_check())
+
+@app.task
+def create_periodic_backup():
+    db_manager = DatabaseManager(settings.database_url)
+    chroma_db = ChromaDBManager(settings.chroma_db_path)
+    backup_manager = BackupManager(db_manager, chroma_db)
+    backup_path = backup_manager.create_backup()
+    logger.info(f"Periodic backup created: {backup_path}")

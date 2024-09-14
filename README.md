@@ -1,6 +1,7 @@
 # MyPIA (My Personal Intelligent Assistant)
 
-![CI](https://github.com/dodwmd/mypia/workflows/CI/badge.svg)
+![CI](https://github.com/yourusername/mypia/workflows/CI/badge.svg)
+[![codecov](https://codecov.io/gh/yourusername/mypia/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/mypia)
 
 A personal AI assistant that uses public LLMs and a locally hosted vector database, prioritizing user data privacy.
 
@@ -33,7 +34,7 @@ A personal AI assistant that uses public LLMs and a locally hosted vector databa
 
 1. Clone the repository:
    ```
-   git clone https://github.com/dodwmd/mypia.git
+   git clone https://github.com/yourusername/mypia.git
    cd mypia
    ```
 
@@ -65,7 +66,7 @@ A personal AI assistant that uses public LLMs and a locally hosted vector databa
 
 ## Contributing
 
-[Add guidelines for contributing to the project]
+We welcome contributions to MyPIA! Please see our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
@@ -458,13 +459,11 @@ After setting up the project, you can use the following commands:
 77. Start Celery beat scheduler:
     ```
     poetry run mypia celery start-beat
-    ```
-
+    
 78. Manually trigger email checking task:
     ```
     poetry run mypia celery check-emails
-    ```
-
+    
 79. Manually trigger calendar sync task:
     ```
     poetry run mypia celery sync-calendar
@@ -477,8 +476,7 @@ After setting up the project, you can use the following commands:
 81. Extract named entities from text:
     ```
     poetry run mypia nlp entities "Apple Inc. was founded by Steve Jobs in Cupertino, California."
-    ```
-
+    
 82. Extract noun chunks from text:
     ```
     poetry run mypia nlp noun-chunks "The quick brown fox jumps over the lazy dog."

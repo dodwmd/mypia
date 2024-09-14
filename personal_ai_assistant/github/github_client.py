@@ -9,6 +9,7 @@ import email.utils
 import datetime
 import aiosmtplib
 from personal_ai_assistant.llm.text_processor import TextProcessor
+from personal_ai_assistant.utils.cache import cache
 
 class EmailClient:
     def __init__(self, imap_host: str, smtp_host: str, username: str, password: str, imap_use_ssl: bool = True, smtp_use_tls: bool = True, text_processor: TextProcessor = None):

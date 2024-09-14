@@ -10,6 +10,7 @@ import datetime
 import aiosmtplib
 from personal_ai_assistant.llm.text_processor import TextProcessor
 from personal_ai_assistant.config import encryption_manager
+from personal_ai_assistant.utils.cache import cache
 
 class EmailClient:
     def __init__(self, imap_host: str, smtp_host: str, username: str, password: str, imap_use_ssl: bool = True, smtp_use_tls: bool = True, text_processor: TextProcessor = None):
@@ -39,6 +40,7 @@ class EmailClient:
         if self.smtp_client:
             await self.smtp_client.quit()
 
+    @cache(expire=60)  # Cache for 1 minute
     async def fetch_emails(self, folder: str = 'INBOX', limit: int = 10) -> List[Dict[str, Any]]:
         if not self.imap_client:
             await self.connect_imap()
@@ -111,6 +113,7 @@ class EmailClient:
 
         return emails
 
+    @cache(expire=300)  # Cache for 5 minutes
     async def get_latest_uid(self, folder: str = 'INBOX') -> int:
         if not self.imap_client:
             await self.connect_imap()

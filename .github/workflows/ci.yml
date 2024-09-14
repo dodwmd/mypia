@@ -22,15 +22,44 @@ jobs:
       run: |
         conda activate mypia
         poetry install
-    - name: Run tests
+    - name: Run tests with coverage
       shell: bash -l {0}
       run: |
         conda activate mypia
-        poetry run pytest
-    - name: Run linters
+        poetry run pytest --cov=personal_ai_assistant --cov-report=xml
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: true
+    - name: Run linters and type checkers
       shell: bash -l {0}
       run: |
         conda activate mypia
         poetry run black --check .
         poetry run flake8 .
         poetry run mypy .
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: 2.7
+    - name: Install dependencies
+      run: |
+        cd docs
+        bundle install
+    - name: Build site
+      run: |
+        cd docs
+        bundle exec jekyll build
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs/_site

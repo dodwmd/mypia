@@ -32,6 +32,14 @@ app.conf.beat_schedule = {
         'task': 'personal_ai_assistant.tasks.generate_daily_summary',
         'schedule': crontab(hour=23, minute=55),  # Run daily at 23:55
     },
+    'check-for-updates-daily': {
+        'task': 'personal_ai_assistant.tasks.check_for_updates',
+        'schedule': crontab(hour=0, minute=0),  # Run daily at midnight
+    },
+    'create-periodic-backup': {
+        'task': 'personal_ai_assistant.tasks.create_periodic_backup',
+        'schedule': crontab(hour=2, minute=0),  # Run daily at 2 AM
+    },
 }
 
 if __name__ == '__main__':

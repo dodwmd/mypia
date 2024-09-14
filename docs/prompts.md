@@ -75,6 +75,7 @@
 ## 16. Documentation
 - Create comprehensive documentation for the project, including setup instructions, usage guide, and API references using Sphinx.
 - Document the development approach and coding standards (PEP 8 and Google style guide).
+- Using Jekyll, create a website for the documentation. Use the theme just-the-docs and the documentation should be hosted on github pages. Use the plugins jekyll-redirect-from, jekyll-feed and jekyll-sitemap.
 
 ## 17. Containerization
 - Finalize the Docker setup, including multi-stage builds for optimization.

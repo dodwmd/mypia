@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/app/static
+    depends_on:
+      - app
+
+  app:
+    build: .
+    volumes:
+      - .:/app
+      - ./static:/app/static
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    expose:
+      - "8000"
+    command: gunicorn -w 4 -b 0.0.0.0:8000 personal_ai_assistant.wsgi:application
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=mypia
+      - POSTGRES_USER=mypia
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+  redis:
+    image: redis:6
+    volumes:
+      - redis_data:/data
+
+  celery_worker:
+    build: .
+    command: celery -A personal_ai_assistant.celery_app worker --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - app
+      - db
+      - redis
+
+  celery_beat:
+    build: .
+    command: celery -A personal_ai_assistant.celery_app beat --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - app
+      - db
+      - redis
+
+  chroma_db:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma_data:/chroma/chroma
+
+volumes:
+  postgres_data:
+  redis_data:
+  chroma_data:
+  static:

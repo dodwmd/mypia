@@ -22,6 +22,12 @@ from personal_ai_assistant.tasks import check_and_process_new_emails, sync_calen
 from personal_ai_assistant.nlp.spacy_processor import SpacyProcessor
 from personal_ai_assistant.utils.logging_config import setup_logging
 from personal_ai_assistant.utils.exceptions import MyPIAException
+from personal_ai_assistant.sync.sync_manager import SyncManager
+from personal_ai_assistant.utils.cache import invalidate_cache
+from personal_ai_assistant.utils.profiling import cpu_profile, memory_profile_decorator
+from personal_ai_assistant.updater.update_manager import UpdateManager
+from personal_ai_assistant.utils.backup_manager import BackupManager
+from personal_ai_assistant.auth.auth_manager import AuthManager
 import asyncio
 import json
 import numpy as np
@@ -34,7 +40,9 @@ logger = setup_logging(log_level=logging.DEBUG if settings.debug else logging.IN
 console = Console()
 
 # Initialize components
-llm = LlamaCppInterface(settings.llm_model_path)
+db_manager = DatabaseManager(settings.database_url)
+auth_manager = AuthManager(db_manager)
+llm = LlamaCppInterface(settings.llm_model_path, db_manager=db_manager)
 text_processor = TextProcessor(llm)
 embeddings = SentenceTransformerEmbeddings(settings.embedding_model)
 chroma_db = ChromaDBManager(settings.chroma_db_path)
@@ -55,13 +63,36 @@ caldav_client = CalDAVClient(
 task_manager = TaskManager()
 web_processor = WebContentProcessor(text_processor)
 github_client = GitHubClient(settings.github_token.get_secret_value(), text_processor)
-db_manager = DatabaseManager(settings.database_url.get_secret_value())
 spacy_processor = SpacyProcessor()
 
 @click.group()
-def cli():
+@click.option('--username', prompt=True)
+@click.option('--password', prompt=True, hide_input=True)
+@click.option('--offline', is_flag=True, help="Run in offline mode")
+@click.option('--profile', type=click.Choice(['cpu', 'memory', 'none']), default='none', help='Enable profiling')
+@click.option('--profile-output', type=click.Path(), help='Output file for profiling results')
+@click.pass_context
+def cli(ctx, username, password, offline, profile, profile_output):
     """Personal AI Assistant CLI"""
-    pass
+    if not auth_manager.authenticate_user(username, password):
+        console.print("[bold red]Authentication failed[/bold red]")
+        ctx.abort()
+    ctx.ensure_object(dict)
+    ctx.obj['username'] = username
+    ctx.obj['offline'] = offline
+    ctx.obj['profile'] = profile
+    ctx.obj['profile_output'] = profile_output
+
+def profile_command(func):
+    @click.pass_context
+    def wrapper(ctx, *args, **kwargs):
+        if ctx.obj['profile'] == 'cpu':
+            cpu_profile(ctx.obj['profile_output'])(func)(*args, **kwargs)
+        elif ctx.obj['profile'] == 'memory':
+            memory_profile_decorator(ctx.obj['profile_output'])(func)(*args, **kwargs)
+        else:
+            func(*args, **kwargs)
+    return wrapper
 
 # Wrap each command with error handling
 def error_handler(func):
@@ -81,42 +112,94 @@ for command in cli.commands.values():
     command.callback = error_handler(command.callback)
 
 @cli.command()
+@click.pass_context
+def user_info(ctx):
+    """Display user information"""
+    user = db_manager.get_user_by_username(ctx.obj['username'])
+    console.print(f"Username: {user.username}")
+    console.print(f"Email: {user.email}")
+    console.print(f"Last login: {user.last_login}")
+
+@cli.command()
 @click.argument('text')
 @click.option('--max-length', default=100, help='Maximum length of the summary in words')
 @click.option('--format', type=click.Choice(['paragraph', 'bullet_points']), default='paragraph', help='Format of the summary')
-def summarize(text: str, max_length: int, format: str):
+@profile_command
+def summarize(ctx, text: str, max_length: int, format: str):
     """Summarize the given text using the LLM"""
+    if ctx.obj['offline']:
+        cached_summary = db_manager.get_cached_data(f"summary_{text}_{max_length}_{format}")
+        if cached_summary:
+            console.print(cached_summary)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached summary found.[/yellow]")
+    
     with console.status("[bold green]Summarizing text..."):
         summary = text_processor.summarize_text(text, max_length, format)
+    db_manager.cache_data(f"summary_{text}_{max_length}_{format}", summary)
     console.print(Panel(summary, title="Summary", expand=False))
 
 @cli.command()
 @click.argument('prompt')
 @click.option('--max-tokens', default=100, help='Maximum number of tokens to generate')
 @click.option('--temperature', default=0.7, help='Temperature for text generation')
-def generate(prompt: str, max_tokens: int, temperature: float):
+@profile_command
+def generate(ctx, prompt: str, max_tokens: int, temperature: float):
     """Generate text based on the given prompt"""
+    if ctx.obj['offline']:
+        cached_generated_text = db_manager.get_cached_data(f"generate_{prompt}_{max_tokens}_{temperature}")
+        if cached_generated_text:
+            console.print(cached_generated_text)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached generated text found.[/yellow]")
+    
     with console.status("[bold green]Generating text..."):
         generated_text = text_processor.generate_text(prompt, max_tokens, temperature)
+    db_manager.cache_data(f"generate_{prompt}_{max_tokens}_{temperature}", generated_text)
     console.print(Panel(generated_text, title="Generated Text", expand=False))
 
 @cli.command()
 @click.argument('context')
 @click.argument('question')
 @click.option('--max-tokens', default=100, help='Maximum number of tokens for the answer')
-def answer(context: str, question: str, max_tokens: int):
+@profile_command
+def answer(ctx, context: str, question: str, max_tokens: int):
     """Answer a question based on the given context"""
+    if ctx.obj['offline']:
+        cached_answer = db_manager.get_cached_data(f"answer_{context}_{question}_{max_tokens}")
+        if cached_answer:
+            console.print(cached_answer)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached answer found.[/yellow]")
+    
     with console.status("[bold green]Answering question..."):
         answer = text_processor.answer_question(context, question, max_tokens)
+    db_manager.cache_data(f"answer_{context}_{question}_{max_tokens}", answer)
     console.print(Panel(f"Q: {question}\n\nA: {answer}", title="Question & Answer", expand=False))
 
 @cli.command()
 @click.argument('description')
 @click.option('--num-tasks', default=3, help='Number of tasks to generate')
-def tasks(description: str, num_tasks: int):
+@profile_command
+def tasks(ctx, description: str, num_tasks: int):
     """Generate tasks based on the given description"""
+    if ctx.obj['offline']:
+        cached_tasks = db_manager.get_cached_data(f"tasks_{description}_{num_tasks}")
+        if cached_tasks:
+            task_tree = Tree("Generated Tasks")
+            for i, task in enumerate(cached_tasks, 1):
+                task_tree.add(f"Task {i}: {task}")
+            console.print(task_tree)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached tasks found.[/yellow]")
+    
     with console.status("[bold green]Generating tasks..."):
         generated_tasks = text_processor.generate_tasks(description, num_tasks)
+    db_manager.cache_data(f"tasks_{description}_{num_tasks}", generated_tasks)
     
     task_tree = Tree("Generated Tasks")
     for i, task in enumerate(generated_tasks, 1):
@@ -125,10 +208,25 @@ def tasks(description: str, num_tasks: int):
 
 @cli.command()
 @click.argument('text')
-def sentiment(text: str):
+@profile_command
+def sentiment(ctx, text: str):
     """Analyze the sentiment of the given text"""
+    if ctx.obj['offline']:
+        cached_sentiment_scores = db_manager.get_cached_data(f"sentiment_{text}")
+        if cached_sentiment_scores:
+            table = Table(title="Sentiment Analysis")
+            table.add_column("Sentiment", style="cyan")
+            table.add_column("Score", style="magenta")
+            for sentiment, score in cached_sentiment_scores.items():
+                table.add_row(sentiment.capitalize(), f"{score:.2f}")
+            console.print(table)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached sentiment scores found.[/yellow]")
+    
     with console.status("[bold green]Analyzing sentiment..."):
         sentiment_scores = text_processor.analyze_sentiment(text)
+    db_manager.cache_data(f"sentiment_{text}", sentiment_scores)
     
     table = Table(title="Sentiment Analysis")
     table.add_column("Sentiment", style="cyan")
@@ -139,20 +237,41 @@ def sentiment(text: str):
 
 @cli.command()
 @click.argument('text')
-def embed(text: str):
+@profile_command
+def embed(ctx, text: str):
     """Generate embeddings for the given text"""
+    if ctx.obj['offline']:
+        cached_embedding = db_manager.get_cached_data(f"embedding_{text}")
+        if cached_embedding:
+            console.print(f"[bold green]Embedding (shape: {np.array(cached_embedding).shape}):[/bold green]")
+            console.print(np.array(cached_embedding))
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached embedding found.[/yellow]")
+    
     with console.status("[bold green]Generating embeddings..."):
         embedding = embeddings.generate_embeddings(text)
+    db_manager.cache_data(f"embedding_{text}", embedding.tolist())
     console.print(f"[bold green]Embedding (shape: {embedding.shape}):[/bold green]")
     console.print(embedding)
 
 @cli.command()
 @click.argument('text1')
 @click.argument('text2')
-def similarity(text1: str, text2: str):
+@profile_command
+def similarity(ctx, text1: str, text2: str):
     """Compute similarity between two texts"""
+    if ctx.obj['offline']:
+        cached_similarity_score = db_manager.get_cached_data(f"similarity_{text1}_{text2}")
+        if cached_similarity_score:
+            console.print(f"[bold green]Similarity score:[/bold green] {cached_similarity_score:.4f}")
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached similarity score found.[/yellow]")
+    
     with console.status("[bold green]Computing similarity..."):
         similarity_score = embeddings.compute_similarity(text1, text2)
+    db_manager.cache_data(f"similarity_{text1}_{text2}", similarity_score)
     console.print(f"[bold green]Similarity score:[/bold green] {similarity_score:.4f}")
 
 @cli.command()
@@ -160,8 +279,13 @@ def similarity(text1: str, text2: str):
 @click.argument('document')
 @click.option('--metadata', type=click.STRING, help='JSON string of metadata')
 @click.option('--id', type=click.STRING, help='Document ID')
-def add_document(collection_name: str, document: str, metadata: str, id: str):
+@profile_command
+def add_document(ctx, collection_name: str, document: str, metadata: str, id: str):
     """Add a document to the vector database"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but adding documents is not supported.[/yellow]")
+        return
+    
     metadata_dict = json.loads(metadata) if metadata else {}
     chroma_db.add_documents(collection_name, [document], [metadata_dict], [id])
     console.print(f"[bold green]Document added to collection '{collection_name}'[/bold green]")
@@ -170,8 +294,13 @@ def add_document(collection_name: str, document: str, metadata: str, id: str):
 @click.argument('collection_name')
 @click.argument('query_text')
 @click.option('--n-results', default=5, help='Number of results to return')
-def query_db(collection_name: str, query_text: str, n_results: int):
+@profile_command
+def query_db(ctx, collection_name: str, query_text: str, n_results: int):
     """Query the vector database"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but querying the database is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Querying vector database..."):
         results = chroma_db.query(collection_name, [query_text], n_results)
     
@@ -190,8 +319,13 @@ def query_db(collection_name: str, query_text: str, n_results: int):
 @click.argument('document')
 @click.option('--metadata', type=click.STRING, help='JSON string of metadata')
 @click.option('--id', type=click.STRING, help='Document ID')
-def add_document_with_embedding(collection_name: str, document: str, metadata: str, id: str):
+@profile_command
+def add_document_with_embedding(ctx, collection_name: str, document: str, metadata: str, id: str):
     """Add a document with its embedding to the vector database"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but adding documents is not supported.[/yellow]")
+        return
+    
     metadata_dict = json.loads(metadata) if metadata else {}
     with console.status("[bold green]Generating embedding..."):
         embedding = embeddings.generate_embeddings(document)
@@ -202,8 +336,13 @@ def add_document_with_embedding(collection_name: str, document: str, metadata: s
 @click.argument('collection_name')
 @click.argument('query_text')
 @click.option('--n-results', default=5, help='Number of results to return')
-def query_db_with_embedding(collection_name: str, query_text: str, n_results: int):
+@profile_command
+def query_db_with_embedding(ctx, collection_name: str, query_text: str, n_results: int):
     """Query the vector database using text embedding"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but querying the database is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Generating query embedding..."):
         query_embedding = embeddings.generate_embeddings(query_text)
     with console.status("[bold green]Querying vector database..."):
@@ -222,8 +361,13 @@ def query_db_with_embedding(collection_name: str, query_text: str, n_results: in
 @cli.command()
 @click.argument('collection_name')
 @click.argument('id')
-def get_embedding(collection_name: str, id: str):
+@profile_command
+def get_embedding(ctx, collection_name: str, id: str):
     """Retrieve the embedding for a specific document"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but retrieving embeddings is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Retrieving embedding..."):
         embedding = chroma_db.get_embeddings(collection_name, [id])[0]
     console.print(f"[bold green]Embedding for document '{id}' in collection '{collection_name}':[/bold green]")
@@ -234,8 +378,13 @@ def get_embedding(collection_name: str, id: str):
 @click.argument('id')
 @click.argument('document')
 @click.option('--metadata', type=click.STRING, help='JSON string of metadata')
-def update_document_embedding(collection_name: str, id: str, document: str, metadata: str):
+@profile_command
+def update_document_embedding(ctx, collection_name: str, id: str, document: str, metadata: str):
     """Update the embedding for a specific document"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but updating embeddings is not supported.[/yellow]")
+        return
+    
     metadata_dict = json.loads(metadata) if metadata else None
     with console.status("[bold green]Generating new embedding..."):
         new_embedding = embeddings.generate_embeddings(document)
@@ -245,15 +394,25 @@ def update_document_embedding(collection_name: str, id: str, document: str, meta
 @cli.command()
 @click.argument('collection_name')
 @click.argument('id')
-def delete_document_embedding(collection_name: str, id: str):
+@profile_command
+def delete_document_embedding(ctx, collection_name: str, id: str):
     """Delete a document and its embedding from the vector database"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but deleting documents is not supported.[/yellow]")
+        return
+    
     chroma_db.delete_embeddings(collection_name, [id])
     console.print(f"[bold green]Deleted document '{id}' from collection '{collection_name}'[/bold green]")
 
 @cli.command()
 @click.option('--limit', default=10, help='Number of emails to fetch')
-def fetch_emails(limit: int):
+@profile_command
+def fetch_emails(ctx, limit: int):
     """Fetch recent emails"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but fetching emails is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Fetching emails...") as status:
         emails = asyncio.run(email_client.fetch_emails(limit=limit))
     
@@ -275,8 +434,13 @@ def fetch_emails(limit: int):
 
 @cli.command()
 @click.argument('uid', type=int)
-def summarize_email(uid: int):
+@profile_command
+def summarize_email(ctx, uid: int):
     """Summarize a specific email"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but summarizing emails is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Summarizing email..."):
         emails = asyncio.run(email_client.fetch_emails(limit=1000))  # Fetch more emails to ensure we find the right one
         email = next((e for e in emails if e['uid'] == uid), None)
@@ -290,8 +454,13 @@ def summarize_email(uid: int):
 @cli.command()
 @click.argument('uid', type=int)
 @click.argument('collection_name')
-def add_email_to_vectordb(uid: int, collection_name: str):
+@profile_command
+def add_email_to_vectordb(ctx, uid: int, collection_name: str):
     """Add an email to the vector database"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but adding emails to the vector database is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Adding email to vector database..."):
         emails = asyncio.run(email_client.fetch_emails(limit=1000))  # Fetch more emails to ensure we find the right one
         email = next((e for e in emails if e['uid'] == uid), None)
@@ -313,8 +482,13 @@ def add_email_to_vectordb(uid: int, collection_name: str):
 @cli.command()
 @click.argument('collection_name')
 @click.option('--limit', default=10, help='Number of emails to ingest')
-def ingest_emails(collection_name: str, limit: int):
+@profile_command
+def ingest_emails(ctx, collection_name: str, limit: int):
     """Ingest emails into the vector database"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but ingesting emails is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Ingesting emails into vector database..."):
         emails = asyncio.run(email_client.fetch_emails(limit=limit))
         for email in emails:
@@ -331,8 +505,13 @@ def ingest_emails(collection_name: str, limit: int):
 
 @cli.command()
 @click.argument('collection_name')
-def ingest_new_emails(collection_name: str):
+@profile_command
+def ingest_new_emails(ctx, collection_name: str):
     """Ingest new emails into the vector database"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but ingesting new emails is not supported.[/yellow]")
+        return
+    
     last_uid = chroma_db.get_latest_document_id(collection_name)
     with console.status("[bold green]Ingesting new emails into vector database..."):
         new_emails = asyncio.run(email_client.fetch_new_emails(last_uid=int(last_uid) if last_uid else 0))
@@ -358,8 +537,13 @@ def ingest_new_emails(collection_name: str):
 @click.option('--body', required=True, help='Email body')
 @click.option('--cc', help='CC recipients (comma-separated)')
 @click.option('--bcc', help='BCC recipients (comma-separated)')
-def send_email(to: str, subject: str, body: str, cc: str = None, bcc: str = None):
+@profile_command
+def send_email(ctx, to: str, subject: str, body: str, cc: str = None, bcc: str = None):
     """Send an email"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but sending emails is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Sending email..."):
         asyncio.run(email_client.send_email(to, subject, body, cc, bcc))
     console.print("[bold green]Email sent successfully![/bold green]")
@@ -367,8 +551,13 @@ def send_email(to: str, subject: str, body: str, cc: str = None, bcc: str = None
 @cli.command()
 @click.argument('original_uid', type=int)
 @click.option('--body', required=True, help='Reply body')
-def reply_to_email(original_uid: int, body: str):
+@profile_command
+def reply_to_email(ctx, original_uid: int, body: str):
     """Reply to an email"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but replying to emails is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Replying to email..."):
         asyncio.run(email_client.reply_to_email(original_uid, body))
     console.print("[bold green]Reply sent successfully![/bold green]")
@@ -377,8 +566,13 @@ def reply_to_email(original_uid: int, body: str):
 @click.argument('original_uid', type=int)
 @click.option('--to', required=True, help='Forward recipient email address')
 @click.option('--body', required=True, help='Forward body')
-def forward_email(original_uid: int, to: str, body: str):
+@profile_command
+def forward_email(ctx, original_uid: int, to: str, body: str):
     """Forward an email"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but forwarding emails is not supported.[/yellow]")
+        return
+    
     with console.status("[bold green]Forwarding email..."):
         asyncio.run(email_client.forward_email(original_uid, to, body))
     console.print("[bold green]Email forwarded successfully![/bold green]")
@@ -386,8 +580,13 @@ def forward_email(original_uid: int, to: str, body: str):
 @cli.command()
 @click.argument('collection_name')
 @click.option('--interval', default=60, help='Interval in seconds between email checks')
-def watch_emails(collection_name: str, interval: int):
+@profile_command
+def watch_emails(ctx, collection_name: str, interval: int):
     """Watch for new emails and ingest them into the vector database in real-time"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but watching for new emails is not supported.[/yellow]")
+        return
+    
     def ingest_email(email: Dict[str, Any]):
         document = f"Subject: {email['subject']}\n\nFrom: {email['from']}\n\nContent: {email['content']}"
         metadata = {
@@ -411,8 +610,13 @@ def watch_emails(collection_name: str, interval: int):
 @cli.command()
 @click.option('--max-length', default=100, help='Maximum length of the summary in words')
 @click.option('--limit', default=10, help='Number of new emails to summarize')
-def summarize_new_emails(max_length: int, limit: int):
+@profile_command
+def summarize_new_emails(ctx, max_length: int, limit: int):
     """Summarize new emails"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but summarizing new emails is not supported.[/yellow]")
+        return
+    
     last_uid = asyncio.run(email_client.get_latest_uid()) - limit  # Get the UID of the last 'limit' emails
     with console.status("[bold green]Summarizing new emails..."):
         summarized_emails = asyncio.run(email_client.summarize_new_emails(last_uid=last_uid, max_length=max_length))
@@ -424,8 +628,13 @@ def summarize_new_emails(max_length: int, limit: int):
 @click.argument('collection_name')
 @click.option('--interval', default=60, help='Interval in seconds between email checks')
 @click.option('--max-length', default=100, help='Maximum length of the summary in words')
-def watch_emails_with_summary(collection_name: str, interval: int, max_length: int):
+@profile_command
+def watch_emails_with_summary(ctx, collection_name: str, interval: int, max_length: int):
     """Watch for new emails, summarize them, and ingest them into the vector database in real-time"""
+    if ctx.obj['offline']:
+        console.print("[yellow]Warning: Running in offline mode, but watching for new emails with summary is not supported.[/yellow]")
+        return
+    
     def process_email(email: Dict[str, Any]):
         document = f"Subject: {email['subject']}\n\nFrom: {email['from']}\n\nSummary: {email['summary']}\n\nContent: {email['content']}"
         metadata = {
@@ -449,204 +658,111 @@ def watch_emails_with_summary(collection_name: str, interval: int, max_length: i
         console.print("[bold red]Stopped watching for new emails.[/bold red]")
 
 @cli.command()
-def list_calendars():
-    """List available calendars"""
-    with console.status("[bold green]Listing calendars..."):
-        calendars = asyncio.run(caldav_client.get_calendars())
-    for calendar in calendars:
-        console.print(f"[bold green]Calendar:[/bold green] {calendar.name}")
-
-@cli.command()
-@click.argument('calendar_name')
-@click.option('--days', default=7, help='Number of days to fetch events for')
-def list_events(calendar_name: str, days: int):
-    """List events in a calendar"""
-    start = datetime.now()
-    end = start + timedelta(days=days)
-    with console.status("[bold green]Fetching events..."):
-        events = asyncio.run(caldav_client.get_events(calendar_name, start, end))
+@profile_command
+def sync(ctx):
+    """Manually trigger synchronization"""
+    db_manager = ctx.obj['db_manager']
+    chroma_db = ctx.obj['chroma_db']
+    sync_manager = SyncManager(db_manager, chroma_db)
     
-    table = Table(title=f"Events in calendar '{calendar_name}'")
-    table.add_column("Summary", style="cyan")
-    table.add_column("Start", style="magenta")
-    table.add_column("End", style="green")
-    table.add_column("Description", style="yellow")
+    if ctx.obj['offline']:
+        console.print("[yellow]Cannot sync while in offline mode.[/yellow]")
+        return
 
-    for event in events:
-        table.add_row(
-            event['summary'],
-            event['start'].strftime("%Y-%m-%d %H:%M:%S"),
-            event['end'].strftime("%Y-%m-%d %H:%M:%S"),
-            event['description']
-        )
-
-    console.print(table)
+    with console.status("[bold green]Synchronizing data..."):
+        asyncio.run(sync_manager.sync_all())
+    console.print("[bold green]Synchronization complete![/bold green]")
 
 @cli.command()
-@click.argument('calendar_name')
-@click.option('--summary', required=True, help='Event summary')
-@click.option('--start', required=True, help='Event start time (YYYY-MM-DD HH:MM)')
-@click.option('--end', required=True, help='Event end time (YYYY-MM-DD HH:MM)')
-@click.option('--description', default='', help='Event description')
-def create_event(calendar_name: str, summary: str, start: str, end: str, description: str):
-    """Create a new event in a calendar"""
-    start_dt = datetime.strptime(start, "%Y-%m-%d %H:%M")
-    end_dt = datetime.strptime(end, "%Y-%m-%d %H:%M")
-    with console.status("[bold green]Creating event..."):
-        event = asyncio.run(caldav_client.create_event(calendar_name, summary, start_dt, end_dt, description))
-    console.print(f"[bold green]Event created:[/bold green] {event['summary']}")
+@click.argument('user_id', type=int)
+@profile_command
+async def get_user_tasks(user_id: int):
+    """Get tasks for a user"""
+    tasks = await db_manager.get_user_tasks(user_id)
+    console.print(tasks)
 
 @cli.command()
-@click.argument('calendar_name')
-@click.argument('event_id')
-@click.option('--summary', help='New event summary')
-@click.option('--start', help='New event start time (YYYY-MM-DD HH:MM)')
-@click.option('--end', help='New event end time (YYYY-MM-DD HH:MM)')
-@click.option('--description', help='New event description')
-def update_event(calendar_name: str, event_id: str, summary: str, start: str, end: str, description: str):
-    """Update an existing event in a calendar"""
-    start_dt = datetime.strptime(start, "%Y-%m-%d %H:%M") if start else None
-    end_dt = datetime.strptime(end, "%Y-%m-%d %H:%M") if end else None
-    with console.status("[bold green]Updating event..."):
-        event = asyncio.run(caldav_client.update_event(calendar_name, event_id, summary, start_dt, end_dt, description))
-    console.print(f"[bold green]Event updated:[/bold green] {event['summary']}")
+@click.argument('user_id', type=int)
+@profile_command
+async def get_user_preferences(user_id: int):
+    """Get preferences for a user"""
+    preferences = await db_manager.get_user_preferences(user_id)
+    console.print(preferences)
 
 @cli.command()
-@click.argument('calendar_name')
-@click.argument('event_id')
-def delete_event(calendar_name: str, event_id: str):
-    """Delete an event from a calendar"""
-    with console.status("[bold green]Deleting event..."):
-        asyncio.run(caldav_client.delete_event(calendar_name, event_id))
-    console.print(f"[bold green]Event deleted:[/bold green] {event_id}")
+@click.argument('pattern')
+@profile_command
+def clear_cache(pattern: str):
+    """Clear cache entries matching the given pattern"""
+    invalidate_cache(pattern)
+    console.print(f"Cache entries matching '{pattern}' have been cleared.")
 
 @cli.command()
-@click.argument('calendar_name')
-@click.argument('collection_name')
-@click.option('--days', default=30, help='Number of days to fetch events for')
-def ingest_past_events(calendar_name: str, collection_name: str, days: int):
-    """Ingest past calendar events into the vector database"""
-    with console.status("[bold green]Ingesting past events..."):
-        past_events = asyncio.run(caldav_client.get_past_events(calendar_name, days))
-        for event in past_events:
-            document = f"Summary: {event['summary']}\nStart: {event['start']}\nEnd: {event['end']}\nDescription: {event['description']}\nLocation: {event['location']}\nAttendees: {', '.join(event['attendees'])}"
-            metadata = {
-                'id': event['id'],
-                'summary': event['summary'],
-                'start': event['start'].isoformat(),
-                'end': event['end'].isoformat() if event['end'] else None,
-                'type': 'past_event'
-            }
-            embedding = embeddings.generate_embeddings(document)
-            chroma_db.add_embeddings(collection_name, [embedding.tolist()], [document], [metadata], [event['id']])
-            console.print(f"[bold green]Past event ingested:[/bold green] {event['summary']}")
-
-@cli.command()
-@click.argument('calendar_name')
-@click.argument('collection_name')
-@click.option('--days', default=30, help='Number of days to fetch events for')
-def ingest_future_events(calendar_name: str, collection_name: str, days: int):
-    """Ingest future calendar events into the vector database"""
-    with console.status("[bold green]Ingesting future events..."):
-        future_events = asyncio.run(caldav_client.get_future_events(calendar_name, days))
-        for event in future_events:
-            document = f"Summary: {event['summary']}\nStart: {event['start']}\nEnd: {event['end']}\nDescription: {event['description']}\nLocation: {event['location']}\nAttendees: {', '.join(event['attendees'])}"
-            metadata = {
-                'id': event['id'],
-                'summary': event['summary'],
-                'start': event['start'].isoformat(),
-                'end': event['end'].isoformat() if event['end'] else None,
-                'type': 'future_event'
-            }
-            embedding = embeddings.generate_embeddings(document)
-            chroma_db.add_embeddings(collection_name, [embedding.tolist()], [document], [metadata], [event['id']])
-            console.print(f"[bold green]Future event ingested:[/bold green] {event['summary']}")
-
-@cli.command()
-@click.argument('calendar_name')
-@click.argument('collection_name')
-@click.option('--past-days', default=30, help='Number of past days to fetch events for')
-@click.option('--future-days', default=30, help='Number of future days to fetch events for')
-def ingest_all_events(calendar_name: str, collection_name: str, past_days: int, future_days: int):
-    """Ingest all calendar events (past and future) into the vector database"""
-    with console.status("[bold green]Ingesting all events..."):
-        past_events = asyncio.run(caldav_client.get_past_events(calendar_name, past_days))
-        future_events = asyncio.run(caldav_client.get_future_events(calendar_name, future_days))
-        all_events = past_events + future_events
-
-        for event in all_events:
-            document = f"Summary: {event['summary']}\nStart: {event['start']}\nEnd: {event['end']}\nDescription: {event['description']}\nLocation: {event['location']}\nAttendees: {', '.join(event['attendees'])}"
-            metadata = {
-                'id': event['id'],
-                'summary': event['summary'],
-                'start': event['start'].isoformat(),
-                'end': event['end'].isoformat() if event['end'] else None,
-                'type': 'past_event' if event['start'] < datetime.now() else 'future_event'
-            }
-            embedding = embeddings.generate_embeddings(document)
-            chroma_db.add_embeddings(collection_name, [embedding.tolist()], [document], [metadata], [event['id']])
-            console.print(f"[bold green]Event ingested:[/bold green] {event['summary']}")
-
-        console.print(f"[bold green]Ingested {len(all_events)} events into the vector database.[/bold green]")
+@click.option('--check-only', is_flag=True, help="Only check for updates without applying them")
+@profile_command
+async def update(check_only: bool):
+    """Check for and apply updates"""
+    updater = UpdateManager()
+    if await updater.check_for_updates():
+        if check_only:
+            console.print("[bold green]Updates are available.[/bold green]")
+        else:
+            await updater.update_all()
+            console.print("[bold green]Updates have been applied.[/bold green]")
+    else:
+        console.print("[bold green]No updates available.[/bold green]")
 
 @cli.group()
-def task():
-    """Task management commands"""
+def backup():
+    """Backup and recovery commands"""
     pass
 
-@task.command()
-@click.option('--title', required=True, help='Task title')
-@click.option('--description', default='', help='Task description')
-@click.option('--start-time', required=True, help='Event start time (YYYY-MM-DD HH:MM)')
-@click.option('--end-time', required=True, help='Event end time (YYYY-MM-DD HH:MM)')
-@click.option('--location', default='', help='Event location')
-def add_calendar_task(title: str, description: str, start_time: str, end_time: str, location: str):
-    """Add a calendar task"""
-    start = datetime.strptime(start_time, "%Y-%m-%d %H:%M")
-    end = datetime.strptime(end_time, "%Y-%m-%d %H:%M")
-    task = CalendarTask(title, description, start, end, location, caldav_client)
-    task_manager.add_task(task)
-    console.print(f"[bold green]Calendar task added:[/bold green] {task.title}")
+@backup.command()
+@click.pass_context
+def create(ctx):
+    """Create a new backup"""
+    db_manager = ctx.obj['db_manager']
+    chroma_db = ctx.obj['chroma_db']
+    backup_manager = BackupManager(db_manager, chroma_db)
+    backup_path = backup_manager.create_backup()
+    console.print(f"[bold green]Backup created:[/bold green] {backup_path}")
 
-@task.command()
-@click.option('--title', required=True, help='Task title')
-@click.option('--description', default='', help='Task description')
-@click.option('--recipient', required=True, help='Email recipient')
-@click.option('--subject', required=True, help='Email subject')
-@click.option('--body', required=True, help='Email body')
-def add_email_task(title: str, description: str, recipient: str, subject: str, body: str):
-    """Add an email task"""
-    task = EmailTask(title, description, recipient, subject, body, email_client)
-    task_manager.add_task(task)
-    console.print(f"[bold green]Email task added:[/bold green] {task.title}")
+@backup.command()
+@click.argument('backup_file')
+@click.pass_context
+def restore(ctx, backup_file):
+    """Restore from a backup"""
+    db_manager = ctx.obj['db_manager']
+    chroma_db = ctx.obj['chroma_db']
+    backup_manager = BackupManager(db_manager, chroma_db)
+    backup_manager.restore_backup(backup_file)
+    console.print(f"[bold green]Backup restored from:[/bold green] {backup_file}")
 
-@task.command()
-@click.option('--title', required=True, help='Task title')
-@click.option('--description', default='', help='Task description')
-@click.option('--url', required=True, help='URL to look up')
-def add_web_lookup_task(title: str, description: str, url: str):
-    """Add a web lookup task"""
-    task = WebLookupTask(title, description, url, web_processor)
-    task_manager.add_task(task)
-    console.print(f"[bold green]Web lookup task added:[/bold green] {task.title}")
+@backup.command()
+@click.pass_context
+def list(ctx):
+    """List available backups"""
+    db_manager = ctx.obj['db_manager']
+    chroma_db = ctx.obj['chroma_db']
+    backup_manager = BackupManager(db_manager, chroma_db)
+    backups = backup_manager.list_backups()
+    if backups:
+        console.print("[bold green]Available backups:[/bold green]")
+        for backup in backups:
+            console.print(backup)
+    else:
+        console.print("[yellow]No backups found[/yellow]")
 
-@task.command()
-@click.option('--title', required=True, help='Task title')
-@click.option('--description', default='', help='Task description')
-@click.option('--pr-url', required=True, help='GitHub PR URL')
-@click.option('--github-token', required=True, help='GitHub personal access token')
-def add_github_pr_review_task(title: str, description: str, pr_url: str, github_token: str):
-    """Add a GitHub PR review task"""
-    task = GitHubPRReviewTask(title, description, pr_url, github_token, text_processor)
-    task_manager.add_task(task)
-    console.print(f"[bold green]GitHub PR review task added:[/bold green] {task.title}")
+@backup.command()
+@click.argument('backup_file')
+@click.pass_context
+def delete(ctx, backup_file):
+    """Delete a backup"""
+    db_manager = ctx.obj['db_manager']
+    chroma_db = ctx.obj['chroma_db']
+    backup_manager = BackupManager(db_manager, chroma_db)
+    backup_manager.delete_backup(backup_file)
+    console.print(f"[bold green]Backup deleted:[/bold green] {backup_file}")
 
-@task.command()
-@click.option('--title', required=True, help='Task title')
-@click.option('--description', default='', help='Task description')
-@click.option('--query', required=True, help='Information query')
-def add_general_info_lookup_task(title: str, description: str, query: str):
-    """Add a general information lookup task"""
-    task = GeneralInfoLookupTask(title, description, query, text_processor)
-    task_manager.add_task(task)
-    console.print(f"[bold green]General information lookup task added:[/bold green] {task.title}")
+if __name__ == "__main__":
+    cli(_anyio_backend="asyncio")
