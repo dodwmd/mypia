@@ -1,16 +1,9 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ForeignKey, Enum, JSON, Boolean
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
-from datetime import datetime
-import enum
+from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
-class TaskStatus(enum.Enum):
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
 
 class User(Base):
     __tablename__ = 'users'
@@ -18,77 +11,93 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(120), unique=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    is_active = Column(Boolean, default=True)
+    password_hash = Column(String(128))
+    created_at = Column(DateTime)
     last_login = Column(DateTime)
 
-    tasks = relationship('Task', back_populates='user')
-    preferences = relationship('UserPreference', back_populates='user')
-    email_logs = relationship('EmailLog', back_populates='user')
 
 class Task(Base):
     __tablename__ = 'tasks'
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
     title = Column(String(100), nullable=False)
     description = Column(Text)
-    status = Column(Enum(TaskStatus), default=TaskStatus.PENDING)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    completed_at = Column(DateTime)
-    user_id = Column(Integer, ForeignKey('users.id'))
+    status = Column(String(20))
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    due_date = Column(DateTime)
 
-    user = relationship('User', back_populates='tasks')
+    user = relationship("User", back_populates="tasks")
+
 
 class UserPreference(Base):
     __tablename__ = 'user_preferences'
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'))
     key = Column(String(50), nullable=False)
     value = Column(String(255))
 
-    user = relationship('User', back_populates='preferences')
+    user = relationship("User", back_populates="preferences")
+
 
 class EmailLog(Base):
     __tablename__ = 'email_logs'
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'))
     subject = Column(String(255))
-    sender = Column(String(255))
-    recipient = Column(String(255))
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    is_sent = Column(Integer, default=0)  # 0 for received, 1 for sent
+    sender = Column(String(120))
+    recipient = Column(String(120))
+    timestamp = Column(DateTime)
+    is_sent = Column(Boolean)
 
-    user = relationship('User', back_populates='email_logs')
+    user = relationship("User", back_populates="email_logs")
 
-class OfflineCache(Base):
-    __tablename__ = 'offline_cache'
 
-    id = Column(Integer, primary_key=True)
-    key = Column(String(255), unique=True, nullable=False)
-    data = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-class OfflineAction(Base):
-    __tablename__ = 'offline_actions'
+class CalendarEvent(Base):
+    __tablename__ = 'calendar_events'
 
     id = Column(Integer, primary_key=True)
-    type = Column(String(50), nullable=False)
-    data = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    synced = Column(Boolean, default=False)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    title = Column(String(100), nullable=False)
+    description = Column(Text)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
+    location = Column(String(255))
 
-class SyncInfo(Base):
-    __tablename__ = 'sync_info'
+    user = relationship("User", back_populates="calendar_events")
+
+
+class LLMInteraction(Base):
+    __tablename__ = 'llm_interactions'
 
     id = Column(Integer, primary_key=True)
-    type = Column(String(50), unique=True, nullable=False)
-    last_synced = Column(String(255), nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    prompt = Column(Text)
+    response = Column(Text)
+    timestamp = Column(DateTime)
 
-def init_db(engine):
-    Base.metadata.create_all(engine)
+    user = relationship("User", back_populates="llm_interactions")
+
+
+class Backup(Base):
+    __tablename__ = 'backups'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    backup_path = Column(String(255))
+    created_at = Column(DateTime)
+    status = Column(String(20))
+
+    user = relationship("User", back_populates="backups")
+
+
+class Update(Base):
+    __tablename__ = 'updates'
+
+    id = Column(Integer, primary_key=True)
+    version = Column(String(20))
+    applied_at = Column(DateTime)
+    status = Column(String(20))

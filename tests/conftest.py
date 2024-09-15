@@ -1,11 +1,17 @@
 import sys
 import os
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from personal_ai_assistant.database.models import Base
 from personal_ai_assistant.config import settings
+from personal_ai_assistant.database.db_manager import DatabaseManager
+from personal_ai_assistant.auth.auth_manager import AuthManager
+from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
+from personal_ai_assistant.email.imap_client import EmailClient
+from personal_ai_assistant.calendar.caldav_client import CalDAVClient
+from personal_ai_assistant.github.github_client import GitHubClient
 from pydantic import SecretStr
 
 # Add the project root directory to the Python path
@@ -98,3 +104,56 @@ def mock_db_manager(mock_db_session, monkeypatch):
     mock_manager.Session.return_value = mock_db_session
     monkeypatch.setattr("personal_ai_assistant.database.db_manager.DatabaseManager", lambda *args, **kwargs: mock_manager)
     return mock_manager
+
+@pytest.fixture
+def mock_db_manager():
+    return MagicMock(spec=DatabaseManager)
+
+@pytest.fixture
+def mock_auth_manager():
+    return MagicMock(spec=AuthManager)
+
+@pytest.fixture
+def mock_llm():
+    return MagicMock(spec=LlamaCppInterface)
+
+@pytest.fixture
+def mock_email_client():
+    return MagicMock(spec=EmailClient)
+
+@pytest.fixture
+def mock_calendar_client():
+    return MagicMock(spec=CalDAVClient)
+
+@pytest.fixture
+def mock_github_client():
+    return MagicMock(spec=GitHubClient)
+
+@pytest.fixture
+def mock_config():
+    return {
+        'database_url': 'sqlite:///:memory:',
+        'secret_key': 'test_secret_key',
+        'email_host': 'test_email_host',
+        'smtp_host': 'test_smtp_host',
+        'email_username': 'test@example.com',
+        'email_password': 'test_password',
+        'caldav_url': 'test_caldav_url',
+        'caldav_username': 'test_caldav_username',
+        'caldav_password': 'test_caldav_password',
+        'github_token': 'test_github_token',
+    }
+
+@pytest.fixture
+def app(mock_db_manager, mock_auth_manager, mock_llm, mock_email_client, mock_calendar_client, mock_github_client, mock_config):
+    from personal_ai_assistant.app import create_app
+    app = create_app(
+        db_manager=mock_db_manager,
+        auth_manager=mock_auth_manager,
+        llm=mock_llm,
+        email_client=mock_email_client,
+        calendar_client=mock_calendar_client,
+        github_client=mock_github_client,
+        config=mock_config
+    )
+    return app

@@ -6,7 +6,7 @@ from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
 def llama_interface():
     with patch('personal_ai_assistant.llm.llama_cpp_interface.Llama') as mock_llama:
         mock_llama.return_value = MagicMock()
-        return LlamaCppInterface("/app/static/models/mock_model.gguf")
+        return LlamaCppInterface("/app/static/models/llama-2-7b-chat.Q4_K_M.gguf")
 
 def test_generate(llama_interface):
     llama_interface.llm.return_value = {'choices': [{'text': ' Generated text'}]}

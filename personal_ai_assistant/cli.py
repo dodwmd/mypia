@@ -2,10 +2,9 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.syntax import Syntax
 from rich.tree import Tree
-from rich import print as rprint
+from typing import Dict, Any
+import json
 from personal_ai_assistant.config import settings
 from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
 from personal_ai_assistant.llm.text_processor import TextProcessor
@@ -13,20 +12,10 @@ from personal_ai_assistant.embeddings.sentence_transformer import SentenceTransf
 from personal_ai_assistant.vector_db.chroma_db import ChromaDBManager
 from personal_ai_assistant.email.imap_client import EmailClient
 from personal_ai_assistant.calendar.caldav_client import CalDAVClient
-from personal_ai_assistant.tasks.task_manager import TaskManager, CalendarTask, EmailTask, WebLookupTask, GitHubPRReviewTask, GeneralInfoLookupTask
+from personal_ai_assistant.tasks.task_manager import TaskManager
 from personal_ai_assistant.web.scraper import WebContentProcessor
 from personal_ai_assistant.github.github_client import GitHubClient
 from personal_ai_assistant.database.db_manager import DatabaseManager
-from personal_ai_assistant.celery_app import app as celery_app
-from personal_ai_assistant.tasks import (
-    check_and_process_new_emails,
-    sync_calendar_events,
-    clean_up_old_emails,
-    update_task_statuses,
-    generate_daily_summary,
-    check_for_updates,
-    create_periodic_backup
-)
 from personal_ai_assistant.nlp.spacy_processor import SpacyProcessor
 from personal_ai_assistant.utils.logging_config import setup_logging
 from personal_ai_assistant.utils.exceptions import MyPIAException
@@ -37,19 +26,17 @@ from personal_ai_assistant.updater.update_manager import UpdateManager
 from personal_ai_assistant.utils.backup_manager import BackupManager
 from personal_ai_assistant.auth.auth_manager import AuthManager
 import asyncio
-import json
 import numpy as np
-from datetime import datetime, timedelta
 import logging
 import os
-import requests
-from tqdm import tqdm
 from huggingface_hub import hf_hub_download
+
 
 # Set up logging
 logger = setup_logging(log_level=logging.DEBUG if settings.debug else logging.INFO)
 
 console = Console()
+
 
 def ensure_model_exists(model_path, repo_id, filename, cache_dir):
     """Ensure the model file exists, downloading it if necessary."""
@@ -73,9 +60,11 @@ def ensure_model_exists(model_path, repo_id, filename, cache_dir):
         logger.info(f"Model file found at {model_path}.")
         return model_path
 
+
 # Initialize components
 db_manager = DatabaseManager(settings.database_url)
 auth_manager = AuthManager(db_manager)
+
 
 try:
     logger.info("Attempting to get model path...")
@@ -92,6 +81,7 @@ except Exception as e:
     console.print(f"[bold red]Failed to initialize LLM: {str(e)}[/bold red]")
     console.print("[bold yellow]The application will continue without LLM functionality.[/bold yellow]")
     llm = None
+
 
 try:
     embedding_model_path = ensure_model_exists(
@@ -137,6 +127,7 @@ except Exception as e:
     logger.warning("The application will continue without SpaCy functionality.")
     spacy_processor = None
 
+
 @click.group()
 @click.option('--username', prompt=True)
 @click.option('--password', prompt=True, hide_input=True)
@@ -156,6 +147,7 @@ def cli(ctx, username, password, offline, profile, profile_output):
     ctx.obj['profile_output'] = profile_output
     ctx.obj['llm'] = llm
 
+
 def profile_command(func):
     @click.pass_context
     def wrapper(ctx, *args, **kwargs):
@@ -166,6 +158,7 @@ def profile_command(func):
         else:
             func(*args, **kwargs)
     return wrapper
+
 
 # Wrap each command with error handling
 def error_handler(func):
@@ -180,9 +173,11 @@ def error_handler(func):
             console.print("[bold red]An unexpected error occurred. Please check the logs for more information.[/bold red]")
     return wrapper
 
+
 # Apply error_handler to all commands
 for command in cli.commands.values():
     command.callback = error_handler(command.callback)
+
 
 @cli.command()
 @click.pass_context
@@ -192,6 +187,7 @@ def user_info(ctx):
     console.print(f"Username: {user.username}")
     console.print(f"Email: {user.email}")
     console.print(f"Last login: {user.last_login}")
+
 
 @cli.command()
 @click.argument('text')
@@ -213,6 +209,7 @@ def summarize(ctx, text: str, max_length: int, format: str):
     db_manager.cache_data(f"summary_{text}_{max_length}_{format}", summary)
     console.print(Panel(summary, title="Summary", expand=False))
 
+
 @cli.command()
 @click.argument('prompt')
 @click.option('--max-tokens', default=100, help='Maximum number of tokens to generate')
@@ -233,6 +230,7 @@ def generate(ctx, prompt: str, max_tokens: int, temperature: float):
     db_manager.cache_data(f"generate_{prompt}_{max_tokens}_{temperature}", generated_text)
     console.print(Panel(generated_text, title="Generated Text", expand=False))
 
+
 @cli.command()
 @click.argument('context')
 @click.argument('question')
@@ -252,6 +250,7 @@ def answer(ctx, context: str, question: str, max_tokens: int):
         answer = text_processor.answer_question(context, question, max_tokens)
     db_manager.cache_data(f"answer_{context}_{question}_{max_tokens}", answer)
     console.print(Panel(f"Q: {question}\n\nA: {answer}", title="Question & Answer", expand=False))
+
 
 @cli.command()
 @click.argument('description')
@@ -278,6 +277,7 @@ def tasks(ctx, description: str, num_tasks: int):
     for i, task in enumerate(generated_tasks, 1):
         task_tree.add(f"Task {i}: {task}")
     console.print(task_tree)
+
 
 @cli.command()
 @click.argument('text')
@@ -308,6 +308,7 @@ def sentiment(ctx, text: str):
         table.add_row(sentiment.capitalize(), f"{score:.2f}")
     console.print(table)
 
+
 @cli.command()
 @click.argument('text')
 @profile_command
@@ -328,6 +329,1039 @@ def embed(ctx, text: str):
     console.print(f"[bold green]Embedding (shape: {embedding.shape}):[/bold green]")
     console.print(embedding)
 
+
+@cli.command()
+@click.argument('text1')
+@click.argument('text2')
+@profile_command
+def similarity(ctx, text1: str, text2: str):
+    """Compute similarity between two texts"""
+    if ctx.obj['offline']:
+        cached_similarity_score = db_manager.get_cached_data(f"similarity_{text1}_{text2}")
+        if cached_similarity_score:
+            console.print(f"[bold green]Similarity score:[/bold green] {cached_similarity_score:.4f}")
+            return
+        else:
+import click
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.tree import Tree
+from typing import Dict, Any
+import json
+from personal_ai_assistant.config import settings
+from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
+from personal_ai_assistant.llm.text_processor import TextProcessor
+from personal_ai_assistant.embeddings.sentence_transformer import SentenceTransformerEmbeddings
+from personal_ai_assistant.vector_db.chroma_db import ChromaDBManager
+from personal_ai_assistant.email.imap_client import EmailClient
+from personal_ai_assistant.calendar.caldav_client import CalDAVClient
+from personal_ai_assistant.tasks.task_manager import TaskManager
+from personal_ai_assistant.web.scraper import WebContentProcessor
+from personal_ai_assistant.github.github_client import GitHubClient
+from personal_ai_assistant.database.db_manager import DatabaseManager
+from personal_ai_assistant.nlp.spacy_processor import SpacyProcessor
+from personal_ai_assistant.utils.logging_config import setup_logging
+from personal_ai_assistant.utils.exceptions import MyPIAException
+from personal_ai_assistant.sync.sync_manager import SyncManager
+from personal_ai_assistant.utils.cache import invalidate_cache
+from personal_ai_assistant.utils.profiling import cpu_profile, memory_profile_decorator
+from personal_ai_assistant.updater.update_manager import UpdateManager
+from personal_ai_assistant.utils.backup_manager import BackupManager
+from personal_ai_assistant.auth.auth_manager import AuthManager
+import asyncio
+import numpy as np
+import logging
+import os
+from huggingface_hub import hf_hub_download
+
+
+# Set up logging
+logger = setup_logging(log_level=logging.DEBUG if settings.debug else logging.INFO)
+
+console = Console()
+
+
+def ensure_model_exists(model_path, repo_id, filename, cache_dir):
+    """Ensure the model file exists, downloading it if necessary."""
+    if not os.path.exists(model_path):
+        logger.info(f"Model file not found at {model_path}. Downloading...")
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+            downloaded_path = hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                cache_dir=cache_dir,
+                local_dir=cache_dir,
+                local_dir_use_symlinks=False
+            )
+            logger.info(f"Model downloaded successfully to: {downloaded_path}")
+            return downloaded_path
+        except Exception as e:
+            logger.error(f"Error downloading model: {str(e)}")
+            return None
+    else:
+        logger.info(f"Model file found at {model_path}.")
+        return model_path
+
+
+# Initialize components
+db_manager = DatabaseManager(settings.database_url)
+auth_manager = AuthManager(db_manager)
+
+
+try:
+    logger.info("Attempting to get model path...")
+    model_path = settings.llm_model_path
+    if model_path:
+        logger.info(f"Model path obtained: {model_path}")
+        logger.info("Initializing LlamaCppInterface...")
+        llm = LlamaCppInterface(model_path, db_manager=db_manager)
+        logger.info("LlamaCppInterface initialized successfully")
+    else:
+        raise ValueError("Failed to get model path")
+except Exception as e:
+    logger.exception(f"Failed to initialize LLM: {str(e)}")
+    console.print(f"[bold red]Failed to initialize LLM: {str(e)}[/bold red]")
+    console.print("[bold yellow]The application will continue without LLM functionality.[/bold yellow]")
+    llm = None
+
+
+try:
+    embedding_model_path = ensure_model_exists(
+        settings.embedding_model,
+        settings.embedding_model,
+        "pytorch_model.bin",
+        os.path.join(os.path.dirname(settings.llm_model_path), "embeddings")
+    )
+    embeddings = SentenceTransformerEmbeddings(embedding_model_path)
+except Exception as e:
+    logger.error(f"Failed to initialize embeddings: {str(e)}")
+    console.print(f"[bold red]Failed to initialize embeddings: {str(e)}[/bold red]")
+    console.print("[bold yellow]The application will continue without embedding functionality.[/bold yellow]")
+    embeddings = None
+
+chroma_db = ChromaDBManager(settings.chroma_db_path)
+
+# Initialize TextProcessor
+text_processor = TextProcessor(llm)
+
+email_client = EmailClient(
+    settings.email_host,
+    settings.smtp_host,
+    settings.email_username,
+    settings.email_password.get_secret_value(),
+    settings.email_use_ssl,
+    settings.smtp_use_tls,
+    text_processor=text_processor
+)
+caldav_client = CalDAVClient(
+    settings.caldav_url,
+    settings.caldav_username,
+    settings.caldav_password.get_secret_value()
+)
+task_manager = TaskManager()
+web_processor = WebContentProcessor(text_processor)
+github_client = GitHubClient(settings.github_token.get_secret_value())  # Remove text_processor argument
+
+try:
+    spacy_processor = SpacyProcessor()
+except Exception as e:
+    logger.error(f"Failed to initialize SpacyProcessor: {str(e)}")
+    logger.warning("The application will continue without SpaCy functionality.")
+    spacy_processor = None
+
+
+@click.group()
+@click.option('--username', prompt=True)
+@click.option('--password', prompt=True, hide_input=True)
+@click.option('--offline', is_flag=True, help="Run in offline mode")
+@click.option('--profile', type=click.Choice(['cpu', 'memory', 'none']), default='none', help='Enable profiling')
+@click.option('--profile-output', type=click.Path(), help='Output file for profiling results')
+@click.pass_context
+def cli(ctx, username, password, offline, profile, profile_output):
+    """Personal AI Assistant CLI"""
+    if not auth_manager.authenticate_user(username, password):
+        console.print("[bold red]Authentication failed[/bold red]")
+        ctx.abort()
+    ctx.ensure_object(dict)
+    ctx.obj['username'] = username
+    ctx.obj['offline'] = offline
+    ctx.obj['profile'] = profile
+    ctx.obj['profile_output'] = profile_output
+    ctx.obj['llm'] = llm
+
+
+def profile_command(func):
+    @click.pass_context
+    def wrapper(ctx, *args, **kwargs):
+        if ctx.obj['profile'] == 'cpu':
+            cpu_profile(ctx.obj['profile_output'])(func)(*args, **kwargs)
+        elif ctx.obj['profile'] == 'memory':
+            memory_profile_decorator(ctx.obj['profile_output'])(func)(*args, **kwargs)
+        else:
+            func(*args, **kwargs)
+    return wrapper
+
+
+# Wrap each command with error handling
+def error_handler(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except MyPIAException as e:
+            logger.error(f"{type(e).__name__}: {str(e)}")
+            console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        except Exception as e:
+            logger.exception("An unexpected error occurred")
+            console.print("[bold red]An unexpected error occurred. Please check the logs for more information.[/bold red]")
+    return wrapper
+
+
+# Apply error_handler to all commands
+for command in cli.commands.values():
+    command.callback = error_handler(command.callback)
+
+
+@cli.command()
+@click.pass_context
+def user_info(ctx):
+    """Display user information"""
+    user = db_manager.get_user_by_username(ctx.obj['username'])
+    console.print(f"Username: {user.username}")
+    console.print(f"Email: {user.email}")
+    console.print(f"Last login: {user.last_login}")
+
+
+@cli.command()
+@click.argument('text')
+@click.option('--max-length', default=100, help='Maximum length of the summary in words')
+@click.option('--format', type=click.Choice(['paragraph', 'bullet_points']), default='paragraph', help='Format of the summary')
+@profile_command
+def summarize(ctx, text: str, max_length: int, format: str):
+    """Summarize the given text using the LLM"""
+    if ctx.obj['offline']:
+        cached_summary = db_manager.get_cached_data(f"summary_{text}_{max_length}_{format}")
+        if cached_summary:
+            console.print(cached_summary)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached summary found.[/yellow]")
+    
+    with console.status("[bold green]Summarizing text..."):
+        summary = text_processor.summarize_text(text, max_length, format)
+    db_manager.cache_data(f"summary_{text}_{max_length}_{format}", summary)
+    console.print(Panel(summary, title="Summary", expand=False))
+
+
+@cli.command()
+@click.argument('prompt')
+@click.option('--max-tokens', default=100, help='Maximum number of tokens to generate')
+@click.option('--temperature', default=0.7, help='Temperature for text generation')
+@profile_command
+def generate(ctx, prompt: str, max_tokens: int, temperature: float):
+    """Generate text based on the given prompt"""
+    if ctx.obj['offline']:
+        cached_generated_text = db_manager.get_cached_data(f"generate_{prompt}_{max_tokens}_{temperature}")
+        if cached_generated_text:
+            console.print(cached_generated_text)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached generated text found.[/yellow]")
+    
+    with console.status("[bold green]Generating text..."):
+        generated_text = text_processor.generate_text(prompt, max_tokens, temperature)
+    db_manager.cache_data(f"generate_{prompt}_{max_tokens}_{temperature}", generated_text)
+    console.print(Panel(generated_text, title="Generated Text", expand=False))
+
+
+@cli.command()
+@click.argument('context')
+@click.argument('question')
+@click.option('--max-tokens', default=100, help='Maximum number of tokens for the answer')
+@profile_command
+def answer(ctx, context: str, question: str, max_tokens: int):
+    """Answer a question based on the given context"""
+    if ctx.obj['offline']:
+        cached_answer = db_manager.get_cached_data(f"answer_{context}_{question}_{max_tokens}")
+        if cached_answer:
+            console.print(cached_answer)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached answer found.[/yellow]")
+    
+    with console.status("[bold green]Answering question..."):
+        answer = text_processor.answer_question(context, question, max_tokens)
+    db_manager.cache_data(f"answer_{context}_{question}_{max_tokens}", answer)
+    console.print(Panel(f"Q: {question}\n\nA: {answer}", title="Question & Answer", expand=False))
+
+
+@cli.command()
+@click.argument('description')
+@click.option('--num-tasks', default=3, help='Number of tasks to generate')
+@profile_command
+def tasks(ctx, description: str, num_tasks: int):
+    """Generate tasks based on the given description"""
+    if ctx.obj['offline']:
+        cached_tasks = db_manager.get_cached_data(f"tasks_{description}_{num_tasks}")
+        if cached_tasks:
+            task_tree = Tree("Generated Tasks")
+            for i, task in enumerate(cached_tasks, 1):
+                task_tree.add(f"Task {i}: {task}")
+            console.print(task_tree)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached tasks found.[/yellow]")
+    
+    with console.status("[bold green]Generating tasks..."):
+        generated_tasks = text_processor.generate_tasks(description, num_tasks)
+    db_manager.cache_data(f"tasks_{description}_{num_tasks}", generated_tasks)
+    
+    task_tree = Tree("Generated Tasks")
+    for i, task in enumerate(generated_tasks, 1):
+        task_tree.add(f"Task {i}: {task}")
+    console.print(task_tree)
+
+
+@cli.command()
+@click.argument('text')
+@profile_command
+def sentiment(ctx, text: str):
+    """Analyze the sentiment of the given text"""
+    if ctx.obj['offline']:
+        cached_sentiment_scores = db_manager.get_cached_data(f"sentiment_{text}")
+        if cached_sentiment_scores:
+            table = Table(title="Sentiment Analysis")
+            table.add_column("Sentiment", style="cyan")
+            table.add_column("Score", style="magenta")
+            for sentiment, score in cached_sentiment_scores.items():
+                table.add_row(sentiment.capitalize(), f"{score:.2f}")
+            console.print(table)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached sentiment scores found.[/yellow]")
+    
+    with console.status("[bold green]Analyzing sentiment..."):
+        sentiment_scores = text_processor.analyze_sentiment(text)
+    db_manager.cache_data(f"sentiment_{text}", sentiment_scores)
+    
+    table = Table(title="Sentiment Analysis")
+    table.add_column("Sentiment", style="cyan")
+    table.add_column("Score", style="magenta")
+    for sentiment, score in sentiment_scores.items():
+        table.add_row(sentiment.capitalize(), f"{score:.2f}")
+    console.print(table)
+
+
+@cli.command()
+@click.argument('text')
+@profile_command
+def embed(ctx, text: str):
+    """Generate embeddings for the given text"""
+    if ctx.obj['offline']:
+        cached_embedding = db_manager.get_cached_data(f"embedding_{text}")
+        if cached_embedding:
+            console.print(f"[bold green]Embedding (shape: {np.array(cached_embedding).shape}):[/bold green]")
+            console.print(np.array(cached_embedding))
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached embedding found.[/yellow]")
+    
+    with console.status("[bold green]Generating embeddings..."):
+        embedding = embeddings.generate_embeddings(text)
+    db_manager.cache_data(f"embedding_{text}", embedding.tolist())
+    console.print(f"[bold green]Embedding (shape: {embedding.shape}):[/bold green]")
+    console.print(embedding)
+
+
+@cli.command()
+@click.argument('text1')
+@click.argument('text2')
+@profile_command
+def similarity(ctx, text1: str, text2: str):
+    """Compute similarity between two texts"""
+    if ctx.obj['offline']:
+        cached_similarity_score = db_manager.get_cached_data(f"similarity_{text1}_{text2}")
+        if cached_similarity_score:
+            console.print(f"[bold green]Similarity score:[/bold green] {cached_similarity_score:.4f}")
+            return
+        else:
+import click
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.tree import Tree
+from typing import Dict, Any
+import json
+from personal_ai_assistant.config import settings
+from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
+from personal_ai_assistant.llm.text_processor import TextProcessor
+from personal_ai_assistant.embeddings.sentence_transformer import SentenceTransformerEmbeddings
+from personal_ai_assistant.vector_db.chroma_db import ChromaDBManager
+from personal_ai_assistant.email.imap_client import EmailClient
+from personal_ai_assistant.calendar.caldav_client import CalDAVClient
+from personal_ai_assistant.tasks.task_manager import TaskManager
+from personal_ai_assistant.web.scraper import WebContentProcessor
+from personal_ai_assistant.github.github_client import GitHubClient
+from personal_ai_assistant.database.db_manager import DatabaseManager
+from personal_ai_assistant.nlp.spacy_processor import SpacyProcessor
+from personal_ai_assistant.utils.logging_config import setup_logging
+from personal_ai_assistant.utils.exceptions import MyPIAException
+from personal_ai_assistant.sync.sync_manager import SyncManager
+from personal_ai_assistant.utils.cache import invalidate_cache
+from personal_ai_assistant.utils.profiling import cpu_profile, memory_profile_decorator
+from personal_ai_assistant.updater.update_manager import UpdateManager
+from personal_ai_assistant.utils.backup_manager import BackupManager
+from personal_ai_assistant.auth.auth_manager import AuthManager
+import asyncio
+import numpy as np
+import logging
+import os
+from huggingface_hub import hf_hub_download
+
+
+# Set up logging
+logger = setup_logging(log_level=logging.DEBUG if settings.debug else logging.INFO)
+
+console = Console()
+
+
+def ensure_model_exists(model_path, repo_id, filename, cache_dir):
+    """Ensure the model file exists, downloading it if necessary."""
+    if not os.path.exists(model_path):
+        logger.info(f"Model file not found at {model_path}. Downloading...")
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+            downloaded_path = hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                cache_dir=cache_dir,
+                local_dir=cache_dir,
+                local_dir_use_symlinks=False
+            )
+            logger.info(f"Model downloaded successfully to: {downloaded_path}")
+            return downloaded_path
+        except Exception as e:
+            logger.error(f"Error downloading model: {str(e)}")
+            return None
+    else:
+        logger.info(f"Model file found at {model_path}.")
+        return model_path
+
+
+# Initialize components
+db_manager = DatabaseManager(settings.database_url)
+auth_manager = AuthManager(db_manager)
+
+
+try:
+    logger.info("Attempting to get model path...")
+    model_path = settings.llm_model_path
+    if model_path:
+        logger.info(f"Model path obtained: {model_path}")
+        logger.info("Initializing LlamaCppInterface...")
+        llm = LlamaCppInterface(model_path, db_manager=db_manager)
+        logger.info("LlamaCppInterface initialized successfully")
+    else:
+        raise ValueError("Failed to get model path")
+except Exception as e:
+    logger.exception(f"Failed to initialize LLM: {str(e)}")
+    console.print(f"[bold red]Failed to initialize LLM: {str(e)}[/bold red]")
+    console.print("[bold yellow]The application will continue without LLM functionality.[/bold yellow]")
+    llm = None
+
+
+try:
+    embedding_model_path = ensure_model_exists(
+        settings.embedding_model,
+        settings.embedding_model,
+        "pytorch_model.bin",
+        os.path.join(os.path.dirname(settings.llm_model_path), "embeddings")
+    )
+    embeddings = SentenceTransformerEmbeddings(embedding_model_path)
+except Exception as e:
+    logger.error(f"Failed to initialize embeddings: {str(e)}")
+    console.print(f"[bold red]Failed to initialize embeddings: {str(e)}[/bold red]")
+    console.print("[bold yellow]The application will continue without embedding functionality.[/bold yellow]")
+    embeddings = None
+
+chroma_db = ChromaDBManager(settings.chroma_db_path)
+
+# Initialize TextProcessor
+text_processor = TextProcessor(llm)
+
+email_client = EmailClient(
+    settings.email_host,
+    settings.smtp_host,
+    settings.email_username,
+    settings.email_password.get_secret_value(),
+    settings.email_use_ssl,
+    settings.smtp_use_tls,
+    text_processor=text_processor
+)
+caldav_client = CalDAVClient(
+    settings.caldav_url,
+    settings.caldav_username,
+    settings.caldav_password.get_secret_value()
+)
+task_manager = TaskManager()
+web_processor = WebContentProcessor(text_processor)
+github_client = GitHubClient(settings.github_token.get_secret_value())  # Remove text_processor argument
+
+try:
+    spacy_processor = SpacyProcessor()
+except Exception as e:
+    logger.error(f"Failed to initialize SpacyProcessor: {str(e)}")
+    logger.warning("The application will continue without SpaCy functionality.")
+    spacy_processor = None
+
+
+@click.group()
+@click.option('--username', prompt=True)
+@click.option('--password', prompt=True, hide_input=True)
+@click.option('--offline', is_flag=True, help="Run in offline mode")
+@click.option('--profile', type=click.Choice(['cpu', 'memory', 'none']), default='none', help='Enable profiling')
+@click.option('--profile-output', type=click.Path(), help='Output file for profiling results')
+@click.pass_context
+def cli(ctx, username, password, offline, profile, profile_output):
+    """Personal AI Assistant CLI"""
+    if not auth_manager.authenticate_user(username, password):
+        console.print("[bold red]Authentication failed[/bold red]")
+        ctx.abort()
+    ctx.ensure_object(dict)
+    ctx.obj['username'] = username
+    ctx.obj['offline'] = offline
+    ctx.obj['profile'] = profile
+    ctx.obj['profile_output'] = profile_output
+    ctx.obj['llm'] = llm
+
+
+def profile_command(func):
+    @click.pass_context
+    def wrapper(ctx, *args, **kwargs):
+        if ctx.obj['profile'] == 'cpu':
+            cpu_profile(ctx.obj['profile_output'])(func)(*args, **kwargs)
+        elif ctx.obj['profile'] == 'memory':
+            memory_profile_decorator(ctx.obj['profile_output'])(func)(*args, **kwargs)
+        else:
+            func(*args, **kwargs)
+    return wrapper
+
+
+# Wrap each command with error handling
+def error_handler(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except MyPIAException as e:
+            logger.error(f"{type(e).__name__}: {str(e)}")
+            console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        except Exception as e:
+            logger.exception("An unexpected error occurred")
+            console.print("[bold red]An unexpected error occurred. Please check the logs for more information.[/bold red]")
+    return wrapper
+
+
+# Apply error_handler to all commands
+for command in cli.commands.values():
+    command.callback = error_handler(command.callback)
+
+
+@cli.command()
+@click.pass_context
+def user_info(ctx):
+    """Display user information"""
+    user = db_manager.get_user_by_username(ctx.obj['username'])
+    console.print(f"Username: {user.username}")
+    console.print(f"Email: {user.email}")
+    console.print(f"Last login: {user.last_login}")
+
+
+@cli.command()
+@click.argument('text')
+@click.option('--max-length', default=100, help='Maximum length of the summary in words')
+@click.option('--format', type=click.Choice(['paragraph', 'bullet_points']), default='paragraph', help='Format of the summary')
+@profile_command
+def summarize(ctx, text: str, max_length: int, format: str):
+    """Summarize the given text using the LLM"""
+    if ctx.obj['offline']:
+        cached_summary = db_manager.get_cached_data(f"summary_{text}_{max_length}_{format}")
+        if cached_summary:
+            console.print(cached_summary)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached summary found.[/yellow]")
+    
+    with console.status("[bold green]Summarizing text..."):
+        summary = text_processor.summarize_text(text, max_length, format)
+    db_manager.cache_data(f"summary_{text}_{max_length}_{format}", summary)
+    console.print(Panel(summary, title="Summary", expand=False))
+
+
+@cli.command()
+@click.argument('prompt')
+@click.option('--max-tokens', default=100, help='Maximum number of tokens to generate')
+@click.option('--temperature', default=0.7, help='Temperature for text generation')
+@profile_command
+def generate(ctx, prompt: str, max_tokens: int, temperature: float):
+    """Generate text based on the given prompt"""
+    if ctx.obj['offline']:
+        cached_generated_text = db_manager.get_cached_data(f"generate_{prompt}_{max_tokens}_{temperature}")
+        if cached_generated_text:
+            console.print(cached_generated_text)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached generated text found.[/yellow]")
+    
+    with console.status("[bold green]Generating text..."):
+        generated_text = text_processor.generate_text(prompt, max_tokens, temperature)
+    db_manager.cache_data(f"generate_{prompt}_{max_tokens}_{temperature}", generated_text)
+    console.print(Panel(generated_text, title="Generated Text", expand=False))
+
+
+@cli.command()
+@click.argument('context')
+@click.argument('question')
+@click.option('--max-tokens', default=100, help='Maximum number of tokens for the answer')
+@profile_command
+def answer(ctx, context: str, question: str, max_tokens: int):
+    """Answer a question based on the given context"""
+    if ctx.obj['offline']:
+        cached_answer = db_manager.get_cached_data(f"answer_{context}_{question}_{max_tokens}")
+        if cached_answer:
+            console.print(cached_answer)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached answer found.[/yellow]")
+    
+    with console.status("[bold green]Answering question..."):
+        answer = text_processor.answer_question(context, question, max_tokens)
+    db_manager.cache_data(f"answer_{context}_{question}_{max_tokens}", answer)
+    console.print(Panel(f"Q: {question}\n\nA: {answer}", title="Question & Answer", expand=False))
+
+
+@cli.command()
+@click.argument('description')
+@click.option('--num-tasks', default=3, help='Number of tasks to generate')
+@profile_command
+def tasks(ctx, description: str, num_tasks: int):
+    """Generate tasks based on the given description"""
+    if ctx.obj['offline']:
+        cached_tasks = db_manager.get_cached_data(f"tasks_{description}_{num_tasks}")
+        if cached_tasks:
+            task_tree = Tree("Generated Tasks")
+            for i, task in enumerate(cached_tasks, 1):
+                task_tree.add(f"Task {i}: {task}")
+            console.print(task_tree)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached tasks found.[/yellow]")
+    
+    with console.status("[bold green]Generating tasks..."):
+        generated_tasks = text_processor.generate_tasks(description, num_tasks)
+    db_manager.cache_data(f"tasks_{description}_{num_tasks}", generated_tasks)
+    
+    task_tree = Tree("Generated Tasks")
+    for i, task in enumerate(generated_tasks, 1):
+        task_tree.add(f"Task {i}: {task}")
+    console.print(task_tree)
+
+
+@cli.command()
+@click.argument('text')
+@profile_command
+def sentiment(ctx, text: str):
+    """Analyze the sentiment of the given text"""
+    if ctx.obj['offline']:
+        cached_sentiment_scores = db_manager.get_cached_data(f"sentiment_{text}")
+        if cached_sentiment_scores:
+            table = Table(title="Sentiment Analysis")
+            table.add_column("Sentiment", style="cyan")
+            table.add_column("Score", style="magenta")
+            for sentiment, score in cached_sentiment_scores.items():
+                table.add_row(sentiment.capitalize(), f"{score:.2f}")
+            console.print(table)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached sentiment scores found.[/yellow]")
+    
+    with console.status("[bold green]Analyzing sentiment..."):
+        sentiment_scores = text_processor.analyze_sentiment(text)
+    db_manager.cache_data(f"sentiment_{text}", sentiment_scores)
+    
+    table = Table(title="Sentiment Analysis")
+    table.add_column("Sentiment", style="cyan")
+    table.add_column("Score", style="magenta")
+    for sentiment, score in sentiment_scores.items():
+        table.add_row(sentiment.capitalize(), f"{score:.2f}")
+    console.print(table)
+
+
+@cli.command()
+@click.argument('text')
+@profile_command
+def embed(ctx, text: str):
+    """Generate embeddings for the given text"""
+    if ctx.obj['offline']:
+        cached_embedding = db_manager.get_cached_data(f"embedding_{text}")
+        if cached_embedding:
+            console.print(f"[bold green]Embedding (shape: {np.array(cached_embedding).shape}):[/bold green]")
+            console.print(np.array(cached_embedding))
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached embedding found.[/yellow]")
+    
+    with console.status("[bold green]Generating embeddings..."):
+        embedding = embeddings.generate_embeddings(text)
+    db_manager.cache_data(f"embedding_{text}", embedding.tolist())
+    console.print(f"[bold green]Embedding (shape: {embedding.shape}):[/bold green]")
+    console.print(embedding)
+
+
+@cli.command()
+@click.argument('text1')
+@click.argument('text2')
+@profile_command
+def similarity(ctx, text1: str, text2: str):
+    """Compute similarity between two texts"""
+    if ctx.obj['offline']:
+        cached_similarity_score = db_manager.get_cached_data(f"similarity_{text1}_{text2}")
+        if cached_similarity_score:
+            console.print(f"[bold green]Similarity score:[/bold green] {cached_similarity_score:.4f}")
+            return
+        else:
+import click
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.tree import Tree
+from typing import Dict, Any
+import json
+from personal_ai_assistant.config import settings
+from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
+from personal_ai_assistant.llm.text_processor import TextProcessor
+from personal_ai_assistant.embeddings.sentence_transformer import SentenceTransformerEmbeddings
+from personal_ai_assistant.vector_db.chroma_db import ChromaDBManager
+from personal_ai_assistant.email.imap_client import EmailClient
+from personal_ai_assistant.calendar.caldav_client import CalDAVClient
+from personal_ai_assistant.tasks.task_manager import TaskManager
+from personal_ai_assistant.web.scraper import WebContentProcessor
+from personal_ai_assistant.github.github_client import GitHubClient
+from personal_ai_assistant.database.db_manager import DatabaseManager
+from personal_ai_assistant.nlp.spacy_processor import SpacyProcessor
+from personal_ai_assistant.utils.logging_config import setup_logging
+from personal_ai_assistant.utils.exceptions import MyPIAException
+from personal_ai_assistant.sync.sync_manager import SyncManager
+from personal_ai_assistant.utils.cache import invalidate_cache
+from personal_ai_assistant.utils.profiling import cpu_profile, memory_profile_decorator
+from personal_ai_assistant.updater.update_manager import UpdateManager
+from personal_ai_assistant.utils.backup_manager import BackupManager
+from personal_ai_assistant.auth.auth_manager import AuthManager
+import asyncio
+import numpy as np
+import logging
+import os
+from huggingface_hub import hf_hub_download
+
+
+# Set up logging
+logger = setup_logging(log_level=logging.DEBUG if settings.debug else logging.INFO)
+
+console = Console()
+
+
+def ensure_model_exists(model_path, repo_id, filename, cache_dir):
+    """Ensure the model file exists, downloading it if necessary."""
+    if not os.path.exists(model_path):
+        logger.info(f"Model file not found at {model_path}. Downloading...")
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+            downloaded_path = hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                cache_dir=cache_dir,
+                local_dir=cache_dir,
+                local_dir_use_symlinks=False
+            )
+            logger.info(f"Model downloaded successfully to: {downloaded_path}")
+            return downloaded_path
+        except Exception as e:
+            logger.error(f"Error downloading model: {str(e)}")
+            return None
+    else:
+        logger.info(f"Model file found at {model_path}.")
+        return model_path
+
+
+# Initialize components
+db_manager = DatabaseManager(settings.database_url)
+auth_manager = AuthManager(db_manager)
+
+
+try:
+    logger.info("Attempting to get model path...")
+    model_path = settings.llm_model_path
+    if model_path:
+        logger.info(f"Model path obtained: {model_path}")
+        logger.info("Initializing LlamaCppInterface...")
+        llm = LlamaCppInterface(model_path, db_manager=db_manager)
+        logger.info("LlamaCppInterface initialized successfully")
+    else:
+        raise ValueError("Failed to get model path")
+except Exception as e:
+    logger.exception(f"Failed to initialize LLM: {str(e)}")
+    console.print(f"[bold red]Failed to initialize LLM: {str(e)}[/bold red]")
+    console.print("[bold yellow]The application will continue without LLM functionality.[/bold yellow]")
+    llm = None
+
+
+try:
+    embedding_model_path = ensure_model_exists(
+        settings.embedding_model,
+        settings.embedding_model,
+        "pytorch_model.bin",
+        os.path.join(os.path.dirname(settings.llm_model_path), "embeddings")
+    )
+    embeddings = SentenceTransformerEmbeddings(embedding_model_path)
+except Exception as e:
+    logger.error(f"Failed to initialize embeddings: {str(e)}")
+    console.print(f"[bold red]Failed to initialize embeddings: {str(e)}[/bold red]")
+    console.print("[bold yellow]The application will continue without embedding functionality.[/bold yellow]")
+    embeddings = None
+
+chroma_db = ChromaDBManager(settings.chroma_db_path)
+
+# Initialize TextProcessor
+text_processor = TextProcessor(llm)
+
+email_client = EmailClient(
+    settings.email_host,
+    settings.smtp_host,
+    settings.email_username,
+    settings.email_password.get_secret_value(),
+    settings.email_use_ssl,
+    settings.smtp_use_tls,
+    text_processor=text_processor
+)
+caldav_client = CalDAVClient(
+    settings.caldav_url,
+    settings.caldav_username,
+    settings.caldav_password.get_secret_value()
+)
+task_manager = TaskManager()
+web_processor = WebContentProcessor(text_processor)
+github_client = GitHubClient(settings.github_token.get_secret_value())  # Remove text_processor argument
+
+try:
+    spacy_processor = SpacyProcessor()
+except Exception as e:
+    logger.error(f"Failed to initialize SpacyProcessor: {str(e)}")
+    logger.warning("The application will continue without SpaCy functionality.")
+    spacy_processor = None
+
+
+@click.group()
+@click.option('--username', prompt=True)
+@click.option('--password', prompt=True, hide_input=True)
+@click.option('--offline', is_flag=True, help="Run in offline mode")
+@click.option('--profile', type=click.Choice(['cpu', 'memory', 'none']), default='none', help='Enable profiling')
+@click.option('--profile-output', type=click.Path(), help='Output file for profiling results')
+@click.pass_context
+def cli(ctx, username, password, offline, profile, profile_output):
+    """Personal AI Assistant CLI"""
+    if not auth_manager.authenticate_user(username, password):
+        console.print("[bold red]Authentication failed[/bold red]")
+        ctx.abort()
+    ctx.ensure_object(dict)
+    ctx.obj['username'] = username
+    ctx.obj['offline'] = offline
+    ctx.obj['profile'] = profile
+    ctx.obj['profile_output'] = profile_output
+    ctx.obj['llm'] = llm
+
+
+def profile_command(func):
+    @click.pass_context
+    def wrapper(ctx, *args, **kwargs):
+        if ctx.obj['profile'] == 'cpu':
+            cpu_profile(ctx.obj['profile_output'])(func)(*args, **kwargs)
+        elif ctx.obj['profile'] == 'memory':
+            memory_profile_decorator(ctx.obj['profile_output'])(func)(*args, **kwargs)
+        else:
+            func(*args, **kwargs)
+    return wrapper
+
+
+# Wrap each command with error handling
+def error_handler(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except MyPIAException as e:
+            logger.error(f"{type(e).__name__}: {str(e)}")
+            console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        except Exception as e:
+            logger.exception("An unexpected error occurred")
+            console.print("[bold red]An unexpected error occurred. Please check the logs for more information.[/bold red]")
+    return wrapper
+
+
+# Apply error_handler to all commands
+for command in cli.commands.values():
+    command.callback = error_handler(command.callback)
+
+
+@cli.command()
+@click.pass_context
+def user_info(ctx):
+    """Display user information"""
+    user = db_manager.get_user_by_username(ctx.obj['username'])
+    console.print(f"Username: {user.username}")
+    console.print(f"Email: {user.email}")
+    console.print(f"Last login: {user.last_login}")
+
+
+@cli.command()
+@click.argument('text')
+@click.option('--max-length', default=100, help='Maximum length of the summary in words')
+@click.option('--format', type=click.Choice(['paragraph', 'bullet_points']), default='paragraph', help='Format of the summary')
+@profile_command
+def summarize(ctx, text: str, max_length: int, format: str):
+    """Summarize the given text using the LLM"""
+    if ctx.obj['offline']:
+        cached_summary = db_manager.get_cached_data(f"summary_{text}_{max_length}_{format}")
+        if cached_summary:
+            console.print(cached_summary)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached summary found.[/yellow]")
+    
+    with console.status("[bold green]Summarizing text..."):
+        summary = text_processor.summarize_text(text, max_length, format)
+    db_manager.cache_data(f"summary_{text}_{max_length}_{format}", summary)
+    console.print(Panel(summary, title="Summary", expand=False))
+
+
+@cli.command()
+@click.argument('prompt')
+@click.option('--max-tokens', default=100, help='Maximum number of tokens to generate')
+@click.option('--temperature', default=0.7, help='Temperature for text generation')
+@profile_command
+def generate(ctx, prompt: str, max_tokens: int, temperature: float):
+    """Generate text based on the given prompt"""
+    if ctx.obj['offline']:
+        cached_generated_text = db_manager.get_cached_data(f"generate_{prompt}_{max_tokens}_{temperature}")
+        if cached_generated_text:
+            console.print(cached_generated_text)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached generated text found.[/yellow]")
+    
+    with console.status("[bold green]Generating text..."):
+        generated_text = text_processor.generate_text(prompt, max_tokens, temperature)
+    db_manager.cache_data(f"generate_{prompt}_{max_tokens}_{temperature}", generated_text)
+    console.print(Panel(generated_text, title="Generated Text", expand=False))
+
+
+@cli.command()
+@click.argument('context')
+@click.argument('question')
+@click.option('--max-tokens', default=100, help='Maximum number of tokens for the answer')
+@profile_command
+def answer(ctx, context: str, question: str, max_tokens: int):
+    """Answer a question based on the given context"""
+    if ctx.obj['offline']:
+        cached_answer = db_manager.get_cached_data(f"answer_{context}_{question}_{max_tokens}")
+        if cached_answer:
+            console.print(cached_answer)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached answer found.[/yellow]")
+    
+    with console.status("[bold green]Answering question..."):
+        answer = text_processor.answer_question(context, question, max_tokens)
+    db_manager.cache_data(f"answer_{context}_{question}_{max_tokens}", answer)
+    console.print(Panel(f"Q: {question}\n\nA: {answer}", title="Question & Answer", expand=False))
+
+
+@cli.command()
+@click.argument('description')
+@click.option('--num-tasks', default=3, help='Number of tasks to generate')
+@profile_command
+def tasks(ctx, description: str, num_tasks: int):
+    """Generate tasks based on the given description"""
+    if ctx.obj['offline']:
+        cached_tasks = db_manager.get_cached_data(f"tasks_{description}_{num_tasks}")
+        if cached_tasks:
+            task_tree = Tree("Generated Tasks")
+            for i, task in enumerate(cached_tasks, 1):
+                task_tree.add(f"Task {i}: {task}")
+            console.print(task_tree)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached tasks found.[/yellow]")
+    
+    with console.status("[bold green]Generating tasks..."):
+        generated_tasks = text_processor.generate_tasks(description, num_tasks)
+    db_manager.cache_data(f"tasks_{description}_{num_tasks}", generated_tasks)
+    
+    task_tree = Tree("Generated Tasks")
+    for i, task in enumerate(generated_tasks, 1):
+        task_tree.add(f"Task {i}: {task}")
+    console.print(task_tree)
+
+
+@cli.command()
+@click.argument('text')
+@profile_command
+def sentiment(ctx, text: str):
+    """Analyze the sentiment of the given text"""
+    if ctx.obj['offline']:
+        cached_sentiment_scores = db_manager.get_cached_data(f"sentiment_{text}")
+        if cached_sentiment_scores:
+            table = Table(title="Sentiment Analysis")
+            table.add_column("Sentiment", style="cyan")
+            table.add_column("Score", style="magenta")
+            for sentiment, score in cached_sentiment_scores.items():
+                table.add_row(sentiment.capitalize(), f"{score:.2f}")
+            console.print(table)
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached sentiment scores found.[/yellow]")
+    
+    with console.status("[bold green]Analyzing sentiment..."):
+        sentiment_scores = text_processor.analyze_sentiment(text)
+    db_manager.cache_data(f"sentiment_{text}", sentiment_scores)
+    
+    table = Table(title="Sentiment Analysis")
+    table.add_column("Sentiment", style="cyan")
+    table.add_column("Score", style="magenta")
+    for sentiment, score in sentiment_scores.items():
+        table.add_row(sentiment.capitalize(), f"{score:.2f}")
+    console.print(table)
+
+
+@cli.command()
+@click.argument('text')
+@profile_command
+def embed(ctx, text: str):
+    """Generate embeddings for the given text"""
+    if ctx.obj['offline']:
+        cached_embedding = db_manager.get_cached_data(f"embedding_{text}")
+        if cached_embedding:
+            console.print(f"[bold green]Embedding (shape: {np.array(cached_embedding).shape}):[/bold green]")
+            console.print(np.array(cached_embedding))
+            return
+        else:
+            console.print("[yellow]Warning: Running in offline mode, but no cached embedding found.[/yellow]")
+    
+    with console.status("[bold green]Generating embeddings..."):
+        embedding = embeddings.generate_embeddings(text)
+    db_manager.cache_data(f"embedding_{text}", embedding.tolist())
+    console.print(f"[bold green]Embedding (shape: {embedding.shape}):[/bold green]")
+    console.print(embedding)
+
+
 @cli.command()
 @click.argument('text1')
 @click.argument('text2')
@@ -347,12 +1381,9 @@ def similarity(ctx, text1: str, text2: str):
     db_manager.cache_data(f"similarity_{text1}_{text2}", similarity_score)
     console.print(f"[bold green]Similarity score:[/bold green] {similarity_score:.4f}")
 
-@cli.command()
-@click.argument('collection_name')
-@click.argument('document')
-@click.option('--metadata', type=click.STRING, help='JSON string of metadata')
-@click.option('--id', type=click.STRING, help='Document ID')
-@profile_command
+
+if __name__ == "__main__":
+    cli()
 def add_document(ctx, collection_name: str, document: str, metadata: str, id: str):
     """Add a document to the vector database"""
     if ctx.obj['offline']:
@@ -729,22 +1760,6 @@ def watch_emails_with_summary(ctx, collection_name: str, interval: int, max_leng
         asyncio.run(email_client.watch_for_new_emails_with_summary(process_email, interval, max_length))
     except KeyboardInterrupt:
         console.print("[bold red]Stopped watching for new emails.[/bold red]")
-
-@cli.command()
-@profile_command
-def sync(ctx):
-    """Manually trigger synchronization"""
-    db_manager = ctx.obj['db_manager']
-    chroma_db = ctx.obj['chroma_db']
-    sync_manager = SyncManager(db_manager, chroma_db)
-    
-    if ctx.obj['offline']:
-        console.print("[yellow]Cannot sync while in offline mode.[/yellow]")
-        return
-
-    with console.status("[bold green]Synchronizing data..."):
-        asyncio.run(sync_manager.sync_all())
-    console.print("[bold green]Synchronization complete![/bold green]")
 
 @cli.command()
 @click.argument('user_id', type=int)

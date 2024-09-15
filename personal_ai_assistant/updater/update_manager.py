@@ -1,13 +1,12 @@
 import asyncio
 import aiohttp
 import os
-import json
 import subprocess
-from typing import Dict, Any
 from personal_ai_assistant.config import settings
 from personal_ai_assistant.utils.logging_config import setup_logging
 
 logger = setup_logging()
+
 
 class UpdateManager:
     def __init__(self):
@@ -28,10 +27,8 @@ class UpdateManager:
     async def download_update(self, component: str) -> str:
         if not self.update_info:
             raise ValueError("No update information available. Call check_for_updates first.")
-
         download_url = self.update_info['components'][component]['url']
         file_name = os.path.basename(download_url)
-        
         async with aiohttp.ClientSession() as session:
             async with session.get(download_url) as response:
                 if response.status == 200:
@@ -83,6 +80,7 @@ class UpdateManager:
             logger.info(f"Updated to version {settings.version}")
         else:
             logger.info("No updates available")
+
 
 async def run_update_check():
     updater = UpdateManager()

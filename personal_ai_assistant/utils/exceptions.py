@@ -1,26 +1,23 @@
 class MyPIAException(Exception):
     """Base exception class for MyPIA"""
-    def __init__(self, message, error_code=None):
-        self.message = message
-        self.error_code = error_code
-        super().__init__(self.message)
-
-class ConfigurationError(MyPIAException):
-    """Raised when there's a configuration error"""
     pass
+
 
 class DatabaseError(MyPIAException):
-    """Raised when there's a database-related error"""
+    """Raised when a database operation fails"""
     pass
 
-class NetworkError(MyPIAException):
-    """Raised when there's a network-related error"""
-    pass
 
 class APIError(MyPIAException):
-    """Raised when there's an API-related error"""
+    """Raised when an API request fails"""
     pass
 
-class TaskExecutionError(MyPIAException):
-    """Raised when there's an error executing a task"""
+
+class ConfigurationError(MyPIAException):
+    """Raised when there's an issue with the configuration"""
+    pass
+
+
+class AuthenticationError(MyPIAException):
+    """Raised when authentication fails"""
     pass

@@ -1,11 +1,11 @@
 import asyncio
-from typing import List, Dict, Any
 from personal_ai_assistant.database.db_manager import DatabaseManager
 from personal_ai_assistant.vector_db.chroma_db import ChromaDBManager
 from personal_ai_assistant.email.imap_client import EmailClient
 from personal_ai_assistant.calendar.caldav_client import CalDAVClient
 from personal_ai_assistant.github.github_client import GitHubClient
 from personal_ai_assistant.config import settings
+
 
 class SyncManager:
     def __init__(self, db_manager: DatabaseManager, chroma_db: ChromaDBManager):

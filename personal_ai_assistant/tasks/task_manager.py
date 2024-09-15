@@ -2,14 +2,12 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import uuid
-import requests
-from bs4 import BeautifulSoup
-from github import Github
 from personal_ai_assistant.calendar.caldav_client import CalDAVClient
 from personal_ai_assistant.email.imap_client import EmailClient
 from personal_ai_assistant.llm.text_processor import TextProcessor
 from personal_ai_assistant.web.scraper import WebScraper
 from personal_ai_assistant.github.github_client import GitHubClient
+
 
 class Task(ABC):
     def __init__(self, title: str, description: str = ""):
@@ -36,6 +34,7 @@ class Task(ABC):
             "type": self.__class__.__name__
         }
 
+
 class ScheduledTask(Task):
     def __init__(self, title: str, description: str, start_time: datetime, end_time: Optional[datetime] = None):
         super().__init__(title, description)
@@ -50,6 +49,7 @@ class ScheduledTask(Task):
         })
         return task_dict
 
+
 class CommunicationTask(Task):
     def __init__(self, title: str, description: str, recipient: str):
         super().__init__(title, description)
@@ -61,6 +61,7 @@ class CommunicationTask(Task):
             "recipient": self.recipient,
         })
         return task_dict
+
 
 class CalendarTask(ScheduledTask):
     def __init__(self, title: str, description: str, start_time: datetime, end_time: datetime, location: str = "", caldav_client: CalDAVClient = None):
@@ -80,6 +81,7 @@ class CalendarTask(ScheduledTask):
             "location": self.location,
         })
         return task_dict
+
 
 class EmailTask(CommunicationTask):
     def __init__(self, title: str, description: str, recipient: str, subject: str, body: str, email_client: EmailClient = None):
@@ -101,6 +103,7 @@ class EmailTask(CommunicationTask):
         })
         return task_dict
 
+
 class WebLookupTask(Task):
     def __init__(self, title: str, description: str, url: str, text_processor: TextProcessor = None):
         super().__init__(title, description)
@@ -111,12 +114,10 @@ class WebLookupTask(Task):
         scraped_data = await WebScraper.scrape_url(self.url)
         if not scraped_data:
             return {"status": "error", "message": f"Failed to scrape content from {self.url}"}
-        
         if self.text_processor:
             summary = await self.text_processor.summarize_text(scraped_data['content'], max_length=200)
         else:
             summary = await WebScraper.summarize_content(scraped_data['content'], max_length=200)
-        
         return {
             "status": "success",
             "message": f"Looked up information from {self.url}",
@@ -133,6 +134,7 @@ class WebLookupTask(Task):
         })
         return task_dict
 
+
 class GitHubPRReviewTask(Task):
     def __init__(self, title: str, description: str, repo_name: str, pr_number: int, github_client: GitHubClient):
         super().__init__(title, description)
@@ -144,10 +146,8 @@ class GitHubPRReviewTask(Task):
         review_result = await self.github_client.review_pr(self.repo_name, self.pr_number)
         action_logs = await self.github_client.parse_action_logs(self.repo_name, self.pr_number)
         suggested_fixes = await self.github_client.suggest_fixes(self.repo_name, self.pr_number)
-        
         auto_update_result = await self.github_client.auto_update_pr(self.repo_name, self.pr_number)
         auto_respond_result = await self.github_client.auto_respond_to_pr_comments(self.repo_name, self.pr_number)
-        
         return {
             "status": "success",
             "message": f"Completed review and automated actions for PR #{self.pr_number} in {self.repo_name}",
@@ -166,6 +166,7 @@ class GitHubPRReviewTask(Task):
         })
         return task_dict
 
+
 class GeneralInfoLookupTask(Task):
     def __init__(self, title: str, description: str, query: str, text_processor: TextProcessor = None):
         super().__init__(title, description)
@@ -181,6 +182,7 @@ class GeneralInfoLookupTask(Task):
     def to_dict(self) -> Dict[str, Any]:
         task_dict = super().to_dict()
         return task_dict
+
 
 class TaskManager:
     def __init__(self):

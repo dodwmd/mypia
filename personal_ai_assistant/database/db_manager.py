@@ -1,13 +1,15 @@
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
-from .models import Base, User, Task, UserPreference, EmailLog
+from .models import Base, User, UserPreference
 from personal_ai_assistant.utils.encryption import EncryptionManager
 from typing import List, Dict, Any, Optional
+from personal_ai_assistant.config import settings
+from datetime import datetime
+
 
 class DatabaseManager:
-    def __init__(self, db_url: str):
-        self.engine = create_engine(db_url)
-        Base.metadata.create_all(self.engine)
+    def __init__(self, database_url: str):
+        self.engine = create_engine(settings.database_url)
         self.Session = sessionmaker(bind=self.engine)
 
     def init_db():
