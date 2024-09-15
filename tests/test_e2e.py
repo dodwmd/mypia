@@ -13,7 +13,12 @@ from datetime import datetime, timedelta
 
 @pytest.fixture
 def email_client():
-    return EmailClient(settings.email_host, settings.smtp_host, settings.email_username, settings.email_password.get_secret_value())
+    return EmailClient(
+        settings.email_host,
+        settings.smtp_host,
+        settings.email_username,
+        settings.email_password
+    )
 
 @pytest.fixture
 def db_manager():
@@ -37,7 +42,7 @@ def task_manager():
 
 @pytest.fixture
 def github_client():
-    return GitHubClient(settings.github_token.get_secret_value())
+    return GitHubClient(settings.github_token)
 
 @pytest.mark.asyncio
 async def test_email_workflow(email_client, db_manager, chroma_db, llm_interface, task_manager):

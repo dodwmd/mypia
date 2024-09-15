@@ -3,7 +3,7 @@ import json
 from functools import wraps
 from personal_ai_assistant.config import settings
 
-redis_client = redis.Redis.from_url(settings.redis_url.get_secret_value())
+redis_client = redis.Redis.from_url(settings.redis_url)
 
 def cache_key(*args, **kwargs):
     """Generate a cache key based on the function arguments."""

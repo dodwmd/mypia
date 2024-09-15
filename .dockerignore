@@ -1,0 +1,43 @@
+# Ignore the static models directory
+static/models
+
+# Ignore Python cache files
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environment
+venv
+.env
+
+# Ignore git directory
+.git
+
+# Ignore editor-specific files
+.vscode
+.idea
+
+# Ignore logs
+*.log
+
+# Ignore test and documentation
+tests
+docs
+
+# Ignore any local configuration files
+*.local
+
+# Ignore npm dependencies
+node_modules
+
+# Ignore build artifacts
+build
+dist
+
+# Ignore Docker files (optional, depending on your setup)
+# Dockerfile
+# docker-compose.yml
+
+# Ignore any other large files or directories that are not needed in the Docker image
+# Add more entries as needed for your specific project

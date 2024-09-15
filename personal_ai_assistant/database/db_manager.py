@@ -10,6 +10,10 @@ class DatabaseManager:
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
+    def init_db():
+        engine = create_engine(settings.database_url)
+        Base.metadata.create_all(engine)
+
     def create_user(self, username: str, email: str, password: str) -> int:
         with self.Session() as session:
             hashed_password = EncryptionManager.hash_password(password)

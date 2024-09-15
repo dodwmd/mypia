@@ -31,3 +31,7 @@ Thumbs.db
 
 # ChromaDB data
 docker/chroma-data/
+node_modules
+
+static/
+data/

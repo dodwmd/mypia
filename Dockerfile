@@ -16,6 +16,7 @@ RUN apt-get update && \
     libssl-dev \
     libxml2-dev \
     libxslt1-dev \
+    libjpeg62-turbo \
     libjpeg-dev \
     zlib1g-dev \
     git \
@@ -57,16 +58,14 @@ RUN apt-get update && \
 # Set work directory
 WORKDIR /app
 
-# Copy project files
-COPY . /app/
-
 # Copy installed dependencies from builder stage
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Create a non-root user
-RUN useradd -m myuser
-USER myuser
+RUN python -m spacy download en_core_web_sm
+
+# Copy project files
+COPY . /app/
 
 # Run the application
 CMD ["python", "-m", "personal_ai_assistant.cli"]

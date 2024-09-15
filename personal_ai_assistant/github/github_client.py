@@ -14,8 +14,10 @@ from github import Github
 
 
 class GitHubClient:
-    def __init__(self, access_token: str):
-        self.github = Github(access_token)
+    def __init__(self, github_token: str, text_processor: TextProcessor = None):
+        self.github_token = github_token
+        self.text_processor = text_processor
+        self.github = Github(self.github_token)
 
     def get_user_repos(self, username: str) -> List[Dict[str, Any]]:
         user = self.github.get_user(username)

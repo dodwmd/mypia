@@ -41,19 +41,72 @@ import json
 import numpy as np
 from datetime import datetime, timedelta
 import logging
+import os
+import requests
+from tqdm import tqdm
+from huggingface_hub import hf_hub_download
 
 # Set up logging
 logger = setup_logging(log_level=logging.DEBUG if settings.debug else logging.INFO)
 
 console = Console()
 
+def ensure_model_exists(model_path, repo_id, filename, cache_dir):
+    """Ensure the model file exists, downloading it if necessary."""
+    if not os.path.exists(model_path):
+        logger.info(f"Model file not found at {model_path}. Downloading...")
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+            downloaded_path = hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                cache_dir=cache_dir,
+                local_dir=cache_dir,
+                local_dir_use_symlinks=False
+            )
+            logger.info(f"Model downloaded successfully to: {downloaded_path}")
+            return downloaded_path
+        except Exception as e:
+            logger.error(f"Error downloading model: {str(e)}")
+            return None
+    else:
+        logger.info(f"Model file found at {model_path}.")
+        return model_path
+
 # Initialize components
 db_manager = DatabaseManager(settings.database_url)
 auth_manager = AuthManager(db_manager)
-llm = LlamaCppInterface(settings.llm_model_path, db_manager=db_manager)
-text_processor = TextProcessor(llm)
-embeddings = SentenceTransformerEmbeddings(settings.embedding_model)
+
+try:
+    logger.info("Attempting to get model path...")
+    model_path = settings.llm_model_path
+    if model_path:
+        logger.info(f"Model path obtained: {model_path}")
+        logger.info("Initializing LlamaCppInterface...")
+        llm = LlamaCppInterface(model_path, db_manager=db_manager)
+        logger.info("LlamaCppInterface initialized successfully")
+    else:
+        raise ValueError("Failed to get model path")
+except Exception as e:
+    logger.exception(f"Failed to initialize LLM: {str(e)}")
+    console.print(f"[bold red]Failed to initialize LLM: {str(e)}[/bold red]")
+    console.print("[bold yellow]The application will continue without LLM functionality.[/bold yellow]")
+    llm = None
+
+embedding_model_path = ensure_model_exists(
+    settings.embedding_model,
+    settings.embedding_model,
+    "pytorch_model.bin",
+    os.path.join(os.path.dirname(settings.llm_model_path), "embeddings")
+)
+
+embeddings = SentenceTransformerEmbeddings(embedding_model_path)
+
 chroma_db = ChromaDBManager(settings.chroma_db_path)
+
+# Initialize TextProcessor
+text_processor = TextProcessor(llm)
+
 email_client = EmailClient(
     settings.email_host,
     settings.smtp_host,
@@ -70,8 +123,14 @@ caldav_client = CalDAVClient(
 )
 task_manager = TaskManager()
 web_processor = WebContentProcessor(text_processor)
-github_client = GitHubClient(settings.github_token.get_secret_value(), text_processor)
-spacy_processor = SpacyProcessor()
+github_client = GitHubClient(settings.github_token.get_secret_value())  # Remove text_processor argument
+
+try:
+    spacy_processor = SpacyProcessor()
+except Exception as e:
+    logger.error(f"Failed to initialize SpacyProcessor: {str(e)}")
+    logger.warning("The application will continue without SpaCy functionality.")
+    spacy_processor = None
 
 @click.group()
 @click.option('--username', prompt=True)
@@ -90,6 +149,7 @@ def cli(ctx, username, password, offline, profile, profile_output):
     ctx.obj['offline'] = offline
     ctx.obj['profile'] = profile
     ctx.obj['profile_output'] = profile_output
+    ctx.obj['llm'] = llm
 
 def profile_command(func):
     @click.pass_context
@@ -773,4 +833,4 @@ def delete(ctx, backup_file):
     console.print(f"[bold green]Backup deleted:[/bold green] {backup_file}")
 
 if __name__ == "__main__":
-    cli(_anyio_backend="asyncio")
+    cli()

@@ -78,8 +78,9 @@ def mock_settings(monkeypatch):
     test_settings = {
         "DATABASE_URL": "sqlite:///:memory:",
         "REDIS_URL": "redis://localhost:6379/0",
-        "LLM_MODEL_PATH": "/path/to/test/model.bin",
+        "LLM_MODEL_PATH": "/app/static/models/llama-2-7b-chat.Q4_K_M.gguf",
         "EMAIL_HOST": "test.email.com",
+        "SMTP_HOST": "test.smtp.com",
         "EMAIL_USERNAME": "test@email.com",
         "EMAIL_PASSWORD": "testpassword",
         "CALDAV_URL": "https://test.caldav.com",

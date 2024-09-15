@@ -9,11 +9,15 @@ from personal_ai_assistant.config import settings
 
 @pytest.fixture
 def email_client():
-    return EmailClient(settings.email_host, settings.smtp_host, settings.email_username, settings.email_password.get_secret_value())
-
+    return EmailClient(
+        settings.email_host,
+        settings.smtp_host,
+        settings.email_username,
+        settings.email_password
+    )
 @pytest.fixture
 def db_manager():
-    return DatabaseManager(settings.database_url.get_secret_value())
+    return DatabaseManager("sqlite:///:memory:")   
 
 @pytest.fixture
 def chroma_db():

@@ -1,11 +1,19 @@
+import os
 from celery import Celery
 from celery.schedules import crontab
 from personal_ai_assistant.config import settings
 
+# Create a directory for Celery Beat
+celery_beat_dir = '/tmp/celery_beat'
+os.makedirs(celery_beat_dir, exist_ok=True)
+
 app = Celery('personal_ai_assistant',
-             broker=settings.redis_url.get_secret_value(),
-             backend=settings.redis_url.get_secret_value(),
+             broker=settings.redis_url,
+             backend=settings.redis_url,
              include=['personal_ai_assistant.tasks'])
+
+# Set the Celery Beat schedule file path
+app.conf.beat_schedule_filename = os.path.join(celery_beat_dir, 'celerybeat-schedule')
 
 app.conf.update(
     result_expires=3600,
