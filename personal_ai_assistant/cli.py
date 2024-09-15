@@ -120,7 +120,7 @@ def error_handler(func):
         except MyPIAException as e:
             logger.error(f"{type(e).__name__}: {str(e)}")
             console.print(f"[bold red]Error:[/bold red] {str(e)}")
-        except Exception as e:
+        except Exception as e: # noqa: E261 F841
             logger.exception("An unexpected error occurred")
             console.print("[bold red]An unexpected error occurred. Please check the logs for more information.[/bold red]")
     return wrapper
@@ -337,7 +337,7 @@ def error_handler(func):
         except MyPIAException as e:
             logger.error(f"{type(e).__name__}: {str(e)}")
             console.print(f"[bold red]Error:[/bold red] {str(e)}")
-        except Exception as e:
+        except Exception as e: # noqa: F841 E261
             logger.exception("An unexpected error occurred")
             console.print("[bold red]An unexpected error occurred. Please check the logs for more information.[/bold red]")
     return wrapper
@@ -484,7 +484,7 @@ def fetch_emails(ctx, limit: int):
         console.print("[yellow]Warning: Running in offline mode, but fetching emails is not supported.[/yellow]")
         return
 
-    with console.status("[bold green]Fetching emails...") as status:
+    with console.status("[bold green]Fetching emails...") as status:  # noqa: F841
         emails = asyncio.run(email_client.fetch_emails(limit=limit))
 
     table = Table(title=f"Recent {limit} Emails")
@@ -874,7 +874,7 @@ try:
         logger.info("LlamaCppInterface initialized successfully")
     else:
         raise ValueError("Failed to get model path")
-except Exception as e:
+except Exception as e:  # noqa: F841
     logger.exception(f"Failed to initialize LLM: {str(e)}")
     console.print(f"[bold red]Failed to initialize LLM: {str(e)}[/bold red]")
     console.print("[bold yellow]The application will continue without LLM functionality.[/bold yellow]")
@@ -982,7 +982,7 @@ github_client = GitHubClient(settings.github_token.get_secret_value())
 
 try:
     spacy_processor = SpacyProcessor()
-except Exception as e:
+except Exception as e:  # noqa: F841
     logger.error(f"Failed to initialize SpacyProcessor: {str(e)}")
     logger.warning("The application will continue without SpaCy functionality.")
     spacy_processor = None

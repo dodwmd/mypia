@@ -2,7 +2,7 @@ import caldav
 from typing import List, Dict, Any
 import asyncio
 from functools import lru_cache
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class CalDAVClient:
