@@ -1,7 +1,7 @@
 # MyPIA (My Personal Intelligent Assistant)
 
-![CI](https://github.com/yourusername/mypia/workflows/CI/badge.svg)
-[![codecov](https://codecov.io/gh/yourusername/mypia/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/mypia)
+![CI](https://github.com/dodwmd/mypia/workflows/CI/badge.svg)
+[![codecov](https://codecov.io/gh/dodwmd/mypia/branch/main/graph/badge.svg)](https://codecov.io/gh/dodwmd/mypia)
 
 A personal AI assistant that uses public LLMs and a locally hosted vector database, prioritizing user data privacy.
 
@@ -34,7 +34,7 @@ A personal AI assistant that uses public LLMs and a locally hosted vector databa
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/mypia.git
+   git clone https://github.com/dodwmd/mypia.git
    cd mypia
    ```
 
