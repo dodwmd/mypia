@@ -16,17 +16,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+
     - name: Set up Conda
       uses: conda-incubator/setup-miniconda@v2.2.0
       with:
         activate-environment: mypia
         environment-file: config/environment.yml
         auto-activate-base: false
+
+    - name: Cache Conda packages
+      uses: actions/cache@v3
+      with:
+        path: ~/conda_pkgs_dir
+        key: ${{ runner.os }}-conda-${{ hashFiles('config/environment.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-conda-
+
+    - name: Cache Poetry dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
     - name: Install dependencies
       shell: bash -l {0}
       run: |
         conda activate mypia
         poetry install
+
     - name: Run tests with coverage
       shell: bash -l {0}
       run: |
@@ -48,14 +67,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1.152.0
       with:
         ruby-version: 2.7
+
+    - name: Cache Ruby gems
+      uses: actions/cache@v3
+      with:
+        path: vendor/bundle
+        key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-gems-
+
     - name: Install dependencies
       run: |
         cd docs
-        bundle install
+        bundle config path vendor/bundle
+        bundle install --jobs 4 --retry 3
+
     - name: Build site
       run: |
         cd docs
