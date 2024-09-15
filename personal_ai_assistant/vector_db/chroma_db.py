@@ -9,7 +9,7 @@ class ChromaDBManager:
             chroma_db_impl="duckdb+parquet",
             persist_directory=persist_directory
         ))
-    
+
     def create_collection(self, collection_name: str):
         return self.client.create_collection(name=collection_name)
 

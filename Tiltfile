@@ -1,24 +1,26 @@
 # Load the docker-compose file
 docker_compose('./docker-compose.yml')
 
-# Define resources for each service
-dc_resource('nginx', labels=["web"])
-dc_resource('app', labels=["app"])
-dc_resource('db', labels=["db"])
-dc_resource('redis', labels=["cache"])
-dc_resource('celery_worker', labels=["worker"])
-dc_resource('celery_beat', labels=["scheduler"])
-dc_resource('chroma_db', labels=["vector_db"])
-
-# Live update for the app service
-docker_build('mypia_app', '.',
-    build_args={'PYTHON_VERSION': '3.9'},
+# Define the Docker build
+docker_build(
+    'mypia-app',
+    '.',
     dockerfile='Dockerfile',
+    build_args={'PYTHON_VERSION': '3.9'},
     live_update=[
         sync('.', '/app'),
         run('poetry install', trigger=['./pyproject.toml', './poetry.lock']),
     ]
 )
+
+# Define resources for each service
+dc_resource('nginx', labels=["web"])
+dc_resource('app', labels=["app"], image='mypia-app')
+dc_resource('db', labels=["db"])
+dc_resource('redis', labels=["cache"])
+dc_resource('celery_worker', labels=["worker"], image='mypia-app')
+dc_resource('celery_beat', labels=["scheduler"], image='mypia-app')
+dc_resource('chroma_db', labels=["vector_db"])
 
 # Configure file watching
 watch_file('./docker-compose.yml')

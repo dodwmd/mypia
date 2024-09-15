@@ -2,12 +2,12 @@ import os
 import logging
 from pydantic import BaseSettings, SecretStr
 from typing import Optional
-from personal_ai_assistant.utils.encryption import EncryptionManager
 from huggingface_hub import hf_hub_download
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class Settings(BaseSettings):
     # Application settings
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     github_token: SecretStr
 
     # Encryption settings
-    encryption_password: SecretStr
+    encryption_key: Optional[SecretStr] = None
 
     # Backup settings
     backup_dir: str = "/app/backups"
@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     enable_multi_user: bool = False
     max_users: int = 1
     user_registration_open: bool = False
+
+    # NLP settings
+    spacy_model: str = "en_core_web_sm"  # Add this line
 
     class Config:
         env_file = ".env"
@@ -84,6 +87,5 @@ class Settings(BaseSettings):
             logger.info(f"Model file found at: {model_path}")
         return model_path
 
+
 settings = Settings()
-encryption_key = EncryptionManager.generate_key(settings.encryption_password.get_secret_value())
-encryption_manager = EncryptionManager(encryption_key)

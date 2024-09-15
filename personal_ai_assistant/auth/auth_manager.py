@@ -7,10 +7,10 @@ from typing import Dict, Any, List
 
 
 class AuthManager:
-    def __init__(self, db_manager: DatabaseManager, secret_key: str):
+    def __init__(self, db_manager: DatabaseManager, encryption_manager: EncryptionManager):
         self.db_manager = db_manager
-        self.encryption_manager = EncryptionManager()
-        self.secret_key = secret_key
+        self.encryption_manager = encryption_manager
+        self.secret_key = encryption_manager.key  # Use the encryption key as the JWT secret
 
     def authenticate_user(self, username: str, password: str) -> bool:
         user = self.db_manager.get_user_by_username(username)

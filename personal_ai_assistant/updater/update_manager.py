@@ -74,7 +74,7 @@ class UpdateManager:
                     success = await self.apply_update(component, file_name)
                     if not success:
                         logger.error(f"Failed to apply {component} update")
-            
+
             # Update current version
             settings.version = self.update_info['version']
             logger.info(f"Updated to version {settings.version}")

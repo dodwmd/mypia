@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 
 @app.task
 def check_and_process_new_emails():
-    email_client = EmailClient(settings.email_host, settings.smtp_host, settings.email_username, settings.email_password)
+    email_client = EmailClient(settings.email_host, settings.smtp_host,
+                               settings.email_username, settings.email_password)
     chroma_db = ChromaDBManager(settings.chroma_db_path)
     db_manager = DatabaseManager(settings.database_url)
 

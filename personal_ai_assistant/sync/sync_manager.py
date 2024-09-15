@@ -11,8 +11,10 @@ class SyncManager:
     def __init__(self, db_manager: DatabaseManager, chroma_db: ChromaDBManager):
         self.db_manager = db_manager
         self.chroma_db = chroma_db
-        self.email_client = EmailClient(settings.email_host, settings.smtp_host, settings.email_username, settings.email_password.get_secret_value())
-        self.caldav_client = CalDAVClient(settings.caldav_url, settings.caldav_username, settings.caldav_password.get_secret_value())
+        self.email_client = EmailClient(settings.email_host, settings.smtp_host,
+                                        settings.email_username, settings.email_password.get_secret_value())
+        self.caldav_client = CalDAVClient(settings.caldav_url, settings.caldav_username,
+                                          settings.caldav_password.get_secret_value())
         self.github_client = GitHubClient(settings.github_token.get_secret_value())
 
     async def sync_all(self):
@@ -54,7 +56,8 @@ class SyncManager:
             )
             document = f"Summary: {event['summary']}\nStart: {event['start']}\nEnd: {event['end']}\nDescription: {event['description']}"
             self.chroma_db.add_documents("calendar_events", [document], [event], [event['id']])
-        self.db_manager.update_last_synced_calendar_date(max(event['end'] for event in new_events) if new_events else last_synced_date)
+        self.db_manager.update_last_synced_calendar_date(
+            max(event['end'] for event in new_events) if new_events else last_synced_date)
 
     async def sync_github(self):
         """Synchronize GitHub data."""
@@ -69,7 +72,8 @@ class SyncManager:
             )
             document = f"Type: {activity['type']}\nRepo: {activity['repo']['name']}\nDetails: {activity['payload']}"
             self.chroma_db.add_documents("github_activities", [document], [activity], [activity['id']])
-        self.db_manager.update_last_synced_github_date(max(activity['created_at'] for activity in new_activities) if new_activities else last_synced_date)
+        self.db_manager.update_last_synced_github_date(
+            max(activity['created_at'] for activity in new_activities) if new_activities else last_synced_date)
 
     async def sync_offline_actions(self):
         """Synchronize actions performed while offline."""
