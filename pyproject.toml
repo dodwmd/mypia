@@ -14,7 +14,7 @@ imapclient = "^2.3.1"
 caldav = "^1.3.0"
 trafilatura = "^1.4.1"
 spacy = "^3.5.2"
-sqlalchemy = "^1.4.0"
+sqlalchemy = "<2.0"
 celery = "^5.2.7"
 redis = "^4.5.5"
 chromadb = "^0.3.23"
@@ -48,4 +48,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 pythonpath = [
   "."
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pytest_asyncio.plugin",
 ]

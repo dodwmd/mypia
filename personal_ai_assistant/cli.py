@@ -93,14 +93,19 @@ except Exception as e:
     console.print("[bold yellow]The application will continue without LLM functionality.[/bold yellow]")
     llm = None
 
-embedding_model_path = ensure_model_exists(
-    settings.embedding_model,
-    settings.embedding_model,
-    "pytorch_model.bin",
-    os.path.join(os.path.dirname(settings.llm_model_path), "embeddings")
-)
-
-embeddings = SentenceTransformerEmbeddings(embedding_model_path)
+try:
+    embedding_model_path = ensure_model_exists(
+        settings.embedding_model,
+        settings.embedding_model,
+        "pytorch_model.bin",
+        os.path.join(os.path.dirname(settings.llm_model_path), "embeddings")
+    )
+    embeddings = SentenceTransformerEmbeddings(embedding_model_path)
+except Exception as e:
+    logger.error(f"Failed to initialize embeddings: {str(e)}")
+    console.print(f"[bold red]Failed to initialize embeddings: {str(e)}[/bold red]")
+    console.print("[bold yellow]The application will continue without embedding functionality.[/bold yellow]")
+    embeddings = None
 
 chroma_db = ChromaDBManager(settings.chroma_db_path)
 

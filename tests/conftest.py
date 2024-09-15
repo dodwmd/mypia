@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from personal_ai_assistant.database.models import Base
 from personal_ai_assistant.config import settings
+from pydantic import SecretStr
 
 # Add the project root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -76,17 +77,17 @@ def mock_chroma_db(monkeypatch):
 def mock_settings(monkeypatch):
     # Override settings with test values
     test_settings = {
-        "DATABASE_URL": "sqlite:///:memory:",
-        "REDIS_URL": "redis://localhost:6379/0",
-        "LLM_MODEL_PATH": "/app/static/models/llama-2-7b-chat.Q4_K_M.gguf",
-        "EMAIL_HOST": "test.email.com",
-        "SMTP_HOST": "test.smtp.com",
-        "EMAIL_USERNAME": "test@email.com",
-        "EMAIL_PASSWORD": "testpassword",
-        "CALDAV_URL": "https://test.caldav.com",
-        "CALDAV_USERNAME": "testuser",
-        "CALDAV_PASSWORD": "testpassword",
-        "GITHUB_TOKEN": "test_github_token",
+        "database_url": "sqlite:///:memory:",
+        "redis_url": "redis://localhost:6379/0",
+        "llm_model_path": "/app/static/models/llama-2-7b-chat.Q4_K_M.gguf",
+        "email_host": "test.email.com",
+        "smtp_host": "test.smtp.com",
+        "email_username": "test@email.com",
+        "email_password": SecretStr("testpassword"),
+        "caldav_url": "https://test.caldav.com",
+        "caldav_username": "testuser",
+        "caldav_password": SecretStr("testpassword"),
+        "github_token": SecretStr("test_github_token"),
     }
     for key, value in test_settings.items():
         monkeypatch.setattr(settings, key, value)
