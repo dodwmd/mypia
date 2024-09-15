@@ -22,12 +22,6 @@ def mock_auth_manager():
 
 
 @pytest.fixture
-def mock_llm():
-    with patch('personal_ai_assistant.llm.llama_cpp_interface.LlamaCppInterface') as mock:
-        yield mock
-
-
-@pytest.fixture
 def mock_email_client():
     with patch('personal_ai_assistant.email.imap_client.EmailClient') as mock:
         yield mock
@@ -97,7 +91,6 @@ def test_github_pr_review(runner, mock_github_client):
 
 
 def test_summarize_text(runner, mock_llm):
-    mock_llm.return_value.summarize_text.return_value = 'Summarized text'
     result = runner.invoke(cli, ['summarize'], input='This is a long text that needs summarization.\n')
     assert result.exit_code == 0
     assert 'Summarized text' in result.output

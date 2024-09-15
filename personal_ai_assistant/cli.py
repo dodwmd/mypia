@@ -46,7 +46,17 @@ else:
     random_key = secrets.token_bytes(32)
     encryption_manager = EncryptionManager(random_key)
 auth_manager = AuthManager(db_manager, encryption_manager)
-llm = LlamaCppInterface(settings.llm_model_path, db_manager=db_manager)
+
+try:
+    if os.path.exists(settings.llm_model_path):
+        llm = LlamaCppInterface(settings.llm_model_path, db_manager=db_manager)
+    else:
+        logger.warning(f"LLM model file not found at {settings.llm_model_path}. LLM functionality will be disabled.")
+        llm = None
+except Exception as e:
+    logger.exception(f"Failed to initialize LLM: {str(e)}")
+    llm = None
+
 embedding_model = SentenceTransformerEmbeddings(settings.embedding_model)
 chroma_db = ChromaDBManager(settings.chroma_db_path)
 email_client = EmailClient(settings.email_host, settings.smtp_host, settings.email_username, settings.email_password.get_secret_value())
@@ -920,7 +930,7 @@ github_client = GitHubClient(settings.github_token.get_secret_value())
 
 try:
     spacy_processor = SpacyProcessor()
-except Exception as e:
+except Exception as e:  # noqa: F841
     logger.error(f"Failed to initialize SpacyProcessor: {str(e)}")
     logger.warning("The application will continue without SpaCy functionality.")
     spacy_processor = None

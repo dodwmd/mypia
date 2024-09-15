@@ -8,7 +8,6 @@ from personal_ai_assistant.database.models import Base
 from personal_ai_assistant.config import settings
 from personal_ai_assistant.database.db_manager import DatabaseManager
 from personal_ai_assistant.auth.auth_manager import AuthManager
-from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
 from personal_ai_assistant.email.imap_client import EmailClient
 from personal_ai_assistant.calendar.caldav_client import CalDAVClient
 from personal_ai_assistant.github.github_client import GitHubClient
@@ -131,7 +130,10 @@ def mock_auth_manager():
 
 @pytest.fixture
 def mock_llm():
-    return MagicMock(spec=LlamaCppInterface)
+    mock = MagicMock()
+    mock.generate.return_value = "Generated text"
+    mock.summarize.return_value = "Summarized text"
+    return mock
 
 
 @pytest.fixture

@@ -18,8 +18,8 @@ dc_resource('nginx', labels=["web"])
 dc_resource('app', labels=["app"], image='mypia-app')
 dc_resource('db', labels=["db"])
 dc_resource('redis', labels=["cache"])
-dc_resource('celery_worker', labels=["worker"], image='mypia-app')
-dc_resource('celery_beat', labels=["scheduler"], image='mypia-app')
+dc_resource('celery_worker', labels=["worker"], image='mypia-celery_beat')
+dc_resource('celery_beat', labels=["scheduler"], image='mypia-celery_worker')
 dc_resource('chroma_db', labels=["vector_db"])
 
 # Configure file watching
@@ -32,6 +32,7 @@ watch_file('./poetry.lock')
 local_resource(
     'run-tests',
     cmd='poetry run pytest',
+    labels=["testing"],
     deps=['./tests']
 )
 
@@ -39,5 +40,6 @@ local_resource(
 local_resource(
     'lint',
     cmd='poetry run flake8',
+    labels=["testing"],
     deps=['.']
 )
