@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from functools import lru_cache
 import logging
+from fastapi.openapi.utils import get_openapi
+from fastapi.middleware.cors import CORSMiddleware
 
 from personal_ai_assistant.auth.auth_manager import AuthManager
 from personal_ai_assistant.llm.text_processor import TextProcessor
@@ -19,12 +21,14 @@ from personal_ai_assistant.utils.encryption import EncryptionManager
 from personal_ai_assistant.sync.sync_manager import SyncManager
 from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
 from personal_ai_assistant.config import settings
-from personal_ai_assistant.database.db_manager import SessionLocal, engine
+from personal_ai_assistant.database.db_manager import SessionLocal, engine, DatabaseManager
 from personal_ai_assistant.database import models
 from personal_ai_assistant.utils.logging_config import setup_logging
+from alembic.config import Config
+from alembic import command
 
 app = FastAPI(title="Personal AI Assistant API")
-api_router = APIRouter(prefix="/v1")
+api_router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -36,23 +40,29 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 # Pydantic models for request/response bodies
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str
+
 
 class User(BaseModel):
     username: str
     email: str
     password: str
 
+
 class Task(BaseModel):
     title: str
     description: str
+
 
 class Email(BaseModel):
     to: str
     subject: str
     body: str
+
 
 class CalendarEvent(BaseModel):
     title: str
@@ -60,10 +70,12 @@ class CalendarEvent(BaseModel):
     end_time: str
     description: Optional[str] = None
 
+
 class VectorDBDocument(BaseModel):
     collection_name: str
     document: str
     metadata: Optional[dict] = None
+
 
 class VectorDBQuery(BaseModel):
     collection_name: str
@@ -71,57 +83,80 @@ class VectorDBQuery(BaseModel):
     n_results: int = 5
 
 # Dependency injection functions
+
+
 @lru_cache()
-def get_auth_manager():
-    return AuthManager()
+def get_db_manager():
+    return DatabaseManager(settings.database_url)
+
+
+@lru_cache()
+def get_encryption_manager():
+    return EncryptionManager(settings.encryption_key)
+
+
+@lru_cache()
+def get_auth_manager(
+    db_manager: DatabaseManager = Depends(get_db_manager),
+    encryption_manager: EncryptionManager = Depends(get_encryption_manager)
+):
+    return AuthManager(db_manager, encryption_manager)
+
 
 @lru_cache()
 def get_text_processor():
     return TextProcessor()
 
+
 @lru_cache()
 def get_email_client():
     return EmailClient(settings.EMAIL_IMAP_SERVER, settings.EMAIL_SMTP_SERVER, settings.EMAIL_USERNAME, settings.EMAIL_PASSWORD)
+
 
 @lru_cache()
 def get_caldav_client():
     return CalDAVClient(settings.CALDAV_URL, settings.CALDAV_USERNAME, settings.CALDAV_PASSWORD)
 
+
 @lru_cache()
 def get_task_manager():
     return TaskManager()
+
 
 @lru_cache()
 def get_web_scraper():
     return WebScraper()
 
+
 @lru_cache()
 def get_github_client():
     return GitHubClient(settings.GITHUB_TOKEN)
+
 
 @lru_cache()
 def get_chroma_db():
     return ChromaDBManager(settings.chroma_db_path)
 
+
 @lru_cache()
 def get_update_manager():
     return UpdateManager()
+
 
 @lru_cache()
 def get_backup_manager():
     return BackupManager()
 
-@lru_cache()
-def get_encryption_manager():
-    return EncryptionManager()
 
 @lru_cache()
 def get_sync_manager():
     return SyncManager()
 
+
 @lru_cache()
 def get_llm():
     return LlamaCppInterface(settings.LLM_MODEL_PATH)
+
 
 def get_db():
     """Dependency to get database session."""
@@ -131,11 +166,18 @@ def get_db():
     finally:
         db.close()
 
+
 @app.on_event("startup")
 async def startup_event():
     """Perform startup tasks."""
     logger.info("Starting up MyPIA API")
-    # Add any necessary startup tasks here
+    
+    # Run database migrations
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+    
+    # Add any other necessary startup tasks here
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -144,10 +186,13 @@ async def shutdown_event():
     # Add any necessary shutdown tasks here
 
 # Root and health check endpoints
-@api_router.get("/")
+
+
+@app.get("/")
 async def root():
     """Root endpoint."""
     return {"message": "Welcome to MyPIA API"}
+
 
 @api_router.get("/health")
 async def health_check():
@@ -155,7 +200,23 @@ async def health_check():
     return {"status": "healthy"}
 
 # Authentication endpoints
-@api_router.post("/token", response_model=Token)
+
+
+@api_router.post("/auth/register", status_code=status.HTTP_201_CREATED)
+async def register_user(
+    user: User,
+    auth_manager: AuthManager = Depends(get_auth_manager)
+):
+    created_user = auth_manager.create_user(user.username, user.email, user.password)
+    if not created_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User already exists",
+        )
+    return {"message": "User created successfully"}
+
+
+@api_router.post("/auth/token", response_model=Token)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_manager: AuthManager = Depends(get_auth_manager)
@@ -169,19 +230,6 @@ async def login(
         )
     access_token = auth_manager.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
-
-@api_router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register_user(
-    user: User,
-    auth_manager: AuthManager = Depends(get_auth_manager)
-):
-    created_user = auth_manager.create_user(user.username, user.email, user.password)
-    if not created_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already exists",
-        )
-    return {"message": "User created successfully"}
 
 
 # Text processing endpoints
@@ -200,6 +248,7 @@ async def summarize_text(
         logger.error(f"Error summarizing text: {str(e)}")
         raise HTTPException(status_code=500, detail="Error summarizing text")
 
+
 @api_router.post("/generate")
 async def generate_text(
     prompt: str,
@@ -216,6 +265,8 @@ async def generate_text(
         raise HTTPException(status_code=500, detail="Error generating text")
 
 # Email endpoints
+
+
 @api_router.get("/emails")
 async def get_emails(
     limit: int = 10,
@@ -229,6 +280,7 @@ async def get_emails(
     except Exception as e:
         logger.error(f"Error fetching emails: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching emails")
+
 
 @api_router.post("/emails/send")
 async def send_email(
@@ -245,6 +297,8 @@ async def send_email(
         raise HTTPException(status_code=500, detail="Error sending email")
 
 # Calendar endpoints
+
+
 @api_router.get("/calendar/events")
 async def get_calendar_events(
     token: str = Depends(oauth2_scheme),
@@ -257,6 +311,7 @@ async def get_calendar_events(
     except Exception as e:
         logger.error(f"Error fetching calendar events: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching calendar events")
+
 
 @api_router.post("/calendar/events")
 async def create_calendar_event(
@@ -273,6 +328,8 @@ async def create_calendar_event(
         raise HTTPException(status_code=500, detail="Error creating calendar event")
 
 # Task management endpoints
+
+
 @api_router.get("/tasks")
 async def get_tasks(
     token: str = Depends(oauth2_scheme),
@@ -285,6 +342,7 @@ async def get_tasks(
     except Exception as e:
         logger.error(f"Error fetching tasks: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching tasks")
+
 
 @api_router.post("/tasks")
 async def create_task(
@@ -301,6 +359,8 @@ async def create_task(
         raise HTTPException(status_code=500, detail="Error creating task")
 
 # Web scraping endpoint
+
+
 @api_router.get("/scrape")
 async def scrape_url(
     url: str,
@@ -316,6 +376,8 @@ async def scrape_url(
         raise HTTPException(status_code=500, detail="Error scraping URL")
 
 # GitHub integration endpoints
+
+
 @api_router.get("/github/repos")
 async def get_github_repos(
     username: str,
@@ -329,6 +391,7 @@ async def get_github_repos(
     except Exception as e:
         logger.error(f"Error fetching GitHub repos for user {username}: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching GitHub repos")
+
 
 @api_router.get("/github/issues")
 async def get_github_issues(
@@ -345,6 +408,8 @@ async def get_github_issues(
         raise HTTPException(status_code=500, detail="Error fetching GitHub issues")
 
 # Vector database endpoints
+
+
 @api_router.post("/vectordb/add")
 async def add_to_vectordb(
     document: VectorDBDocument,
@@ -358,6 +423,7 @@ async def add_to_vectordb(
     except Exception as e:
         logger.error(f"Error adding document to vector database: {str(e)}")
         raise HTTPException(status_code=500, detail="Error adding document to vector database")
+
 
 @api_router.post("/vectordb/query")
 async def query_vectordb(
@@ -374,6 +440,8 @@ async def query_vectordb(
         raise HTTPException(status_code=500, detail="Error querying vector database")
 
 # Update management endpoint
+
+
 @api_router.post("/update")
 async def check_and_apply_updates(
     token: str = Depends(oauth2_scheme),
@@ -392,6 +460,8 @@ async def check_and_apply_updates(
         raise HTTPException(status_code=500, detail="Error checking or applying updates")
 
 # Backup management endpoints
+
+
 @api_router.post("/backup/create")
 async def create_backup(
     token: str = Depends(oauth2_scheme),
@@ -404,6 +474,7 @@ async def create_backup(
     except Exception as e:
         logger.error(f"Error creating backup: {str(e)}")
         raise HTTPException(status_code=500, detail="Error creating backup")
+
 
 @api_router.post("/backup/restore")
 async def restore_backup(
@@ -419,6 +490,7 @@ async def restore_backup(
         logger.error(f"Error restoring backup: {str(e)}")
         raise HTTPException(status_code=500, detail="Error restoring backup")
 
+
 @api_router.get("/backup/list")
 async def list_backups(
     token: str = Depends(oauth2_scheme),
@@ -433,8 +505,21 @@ async def list_backups(
         raise HTTPException(status_code=500, detail="Error listing backups")
 
 # Include the API router
-app.include_router(api_router)
+app.include_router(api_router, prefix="/v1")
 
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Personal AI Assistant API",
+        version="1.0.0",
+        description="API for Personal AI Assistant",
+        routes=app.routes,
+    )
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
 
 if __name__ == "__main__":
     import uvicorn

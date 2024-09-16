@@ -3,6 +3,7 @@ import base64
 import bcrypt
 from typing import Optional
 
+
 class EncryptionManager:
     def __init__(self, encryption_key: Optional[str] = None):
         self.key = self._get_or_create_key(encryption_key)

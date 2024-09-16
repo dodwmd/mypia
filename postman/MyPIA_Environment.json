@@ -1,0 +1,10 @@
+{
+  "name": "MyPIA Environment",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://app:8000",
+      "enabled": true
+    }
+  ]
+}

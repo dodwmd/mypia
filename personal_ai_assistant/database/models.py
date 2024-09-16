@@ -1,34 +1,14 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
+from personal_ai_assistant.models.user import User
+from personal_ai_assistant.models.task import Task
+from personal_ai_assistant.models.email import Email
+from personal_ai_assistant.models.calendar_event import CalendarEvent
+from personal_ai_assistant.models.note import Note
+from personal_ai_assistant.models.contact import ContactSubmission
 
 Base = declarative_base()
-
-
-class User(Base):
-    __tablename__ = 'users'
-
-    id = Column(Integer, primary_key=True)
-    username = Column(String(50), unique=True, nullable=False)
-    email = Column(String(120), unique=True, nullable=False)
-    password_hash = Column(String(128))
-    created_at = Column(DateTime)
-    last_login = Column(DateTime)
-
-
-class Task(Base):
-    __tablename__ = 'tasks'
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    title = Column(String(100), nullable=False)
-    description = Column(Text)
-    status = Column(String(20))
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
-    due_date = Column(DateTime)
-
-    user = relationship("User", back_populates="tasks")
 
 
 class UserPreference(Base):
@@ -54,20 +34,6 @@ class EmailLog(Base):
     is_sent = Column(Boolean)
 
     user = relationship("User", back_populates="email_logs")
-
-
-class CalendarEvent(Base):
-    __tablename__ = 'calendar_events'
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
-    title = Column(String(100), nullable=False)
-    description = Column(Text)
-    start_time = Column(DateTime)
-    end_time = Column(DateTime)
-    location = Column(String(255))
-
-    user = relationship("User", back_populates="calendar_events")
 
 
 class LLMInteraction(Base):

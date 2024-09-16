@@ -59,7 +59,8 @@ except Exception as e:
 
 embedding_model = SentenceTransformerEmbeddings(settings.embedding_model)
 chroma_db = ChromaDBManager(settings.chroma_db_path)
-email_client = EmailClient(settings.email_host, settings.smtp_host, settings.email_username, settings.email_password.get_secret_value())
+email_client = EmailClient(settings.email_host, settings.smtp_host, settings.email_username,
+                           settings.email_password.get_secret_value())
 caldav_client = CalDAVClient(settings.caldav_url, settings.caldav_username, settings.caldav_password.get_secret_value())
 task_manager = TaskManager()
 web_processor = WebScraper()
@@ -130,7 +131,7 @@ def error_handler(func):
         except MyPIAException as e:
             logger.error(f"{type(e).__name__}: {str(e)}")
             console.print(f"[bold red]Error:[/bold red] {str(e)}")
-        except Exception as e: # noqa: E261 F841
+        except Exception as e:  # noqa: E261 F841
             logger.exception("An unexpected error occurred")
             console.print("[bold red]An unexpected error occurred. Please check the logs for more information.[/bold red]")
     return wrapper
@@ -347,7 +348,7 @@ def error_handler(func):
         except MyPIAException as e:
             logger.error(f"{type(e).__name__}: {str(e)}")
             console.print(f"[bold red]Error:[/bold red] {str(e)}")
-        except Exception as e: # noqa: F841 E261
+        except Exception as e:  # noqa: F841 E261
             logger.exception("An unexpected error occurred")
             console.print("[bold red]An unexpected error occurred. Please check the logs for more information.[/bold red]")
     return wrapper

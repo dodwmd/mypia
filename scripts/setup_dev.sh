@@ -4,8 +4,8 @@
 set -e
 
 # Load environment variables from .env file
-if [ -f .env ]; then
-    export $(cat .env | grep -v '#' | awk '/=/ {print $1}')
+if [ -f ../.env ]; then
+    export $(cat ../.env | grep -v '#' | awk '/=/ {print $1}')
 fi
 
 # Database configuration

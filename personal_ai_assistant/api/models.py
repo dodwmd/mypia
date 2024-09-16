@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DateTime
 from sqlalchemy.sql import func
 from personal_ai_assistant.database.db_manager import Base
 
+
 class ContactSubmission(Base):
     __tablename__ = "contact_submissions"
 

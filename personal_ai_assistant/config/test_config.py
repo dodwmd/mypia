@@ -21,4 +21,5 @@ class TestConfig(BaseSettings):
     class Config:
         env_file = ".env.test"
 
+
 test_settings = TestConfig()

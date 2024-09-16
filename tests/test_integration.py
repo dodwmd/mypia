@@ -3,11 +3,13 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from personal_ai_assistant.api.main import app
 
+
 @pytest.fixture
 def client():
     with patch('personal_ai_assistant.api.main.LlamaCppInterface') as mock_llm:
         mock_llm.return_value = MagicMock()
         yield TestClient(app)
+
 
 @pytest.fixture
 def auth_token(client):
@@ -16,6 +18,7 @@ def auth_token(client):
         data={"username": "testuser", "password": "testpassword"}
     )
     return response.json()["access_token"]
+
 
 def test_create_and_list_tasks(client, auth_token):
     # Create a task
@@ -35,6 +38,7 @@ def test_create_and_list_tasks(client, auth_token):
     assert list_response.status_code == 200
     tasks = list_response.json()["tasks"]
     assert any(task["id"] == task_id for task in tasks)
+
 
 def test_create_and_summarize_email(client, auth_token):
     # Create an email
@@ -59,6 +63,7 @@ def test_create_and_summarize_email(client, auth_token):
     summarized_emails = summarize_response.json()["summarized_emails"]
     assert len(summarized_emails) > 0
     assert "summary" in summarized_emails[0]
+
 
 def test_nlp_workflow(client, auth_token):
     # Generate text
@@ -90,6 +95,7 @@ def test_nlp_workflow(client, auth_token):
 
     assert all(key in sentiment for key in ["positive", "negative", "neutral"])
 
+
 def test_vector_db_workflow(client, auth_token):
     # Add document to vector database
     add_response = client.post(
@@ -118,6 +124,7 @@ def test_vector_db_workflow(client, auth_token):
     assert len(results["documents"][0]) > 0
     assert "integration_test" in results["metadatas"][0][0]["source"]
 
+
 def test_system_operations(client, auth_token):
     # Create backup
     backup_response = client.post(
@@ -143,6 +150,7 @@ def test_system_operations(client, auth_token):
     assert list_backups_response.status_code == 200
     backups = list_backups_response.json()["backups"]
     assert isinstance(backups, list)
+
 
 def test_end_to_end_workflow(client, auth_token):
     # Create a task

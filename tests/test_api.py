@@ -3,11 +3,13 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from personal_ai_assistant.api.main import app
 
+
 @pytest.fixture
 def client():
     with patch('personal_ai_assistant.api.main.LlamaCppInterface') as mock_llm:
         mock_llm.return_value = MagicMock()
         yield TestClient(app)
+
 
 @pytest.fixture
 def auth_token(client):
@@ -17,10 +19,12 @@ def auth_token(client):
     )
     return response.json()["access_token"]
 
+
 def test_read_main(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"message": "Welcome to MyPIA API"}
+
 
 def test_create_user(client):
     response = client.post(
@@ -30,6 +34,7 @@ def test_create_user(client):
     assert response.status_code == 201
     assert "user_id" in response.json()
 
+
 def test_login(client):
     response = client.post(
         "/v1/auth/token",
@@ -38,12 +43,14 @@ def test_login(client):
     assert response.status_code == 200
     assert "access_token" in response.json()
 
+
 def test_login_invalid_credentials(client):
     response = client.post(
         "/v1/auth/token",
         data={"username": "testuser", "password": "wrongpassword"}
     )
     assert response.status_code == 401
+
 
 def test_get_user_info(auth_token):
     response = client.get(
@@ -54,6 +61,7 @@ def test_get_user_info(auth_token):
     assert "username" in response.json()
     assert "email" in response.json()
 
+
 def test_create_task(auth_token):
     response = client.post(
         "/v1/tasks",
@@ -63,6 +71,7 @@ def test_create_task(auth_token):
     assert response.status_code == 201
     assert "task_id" in response.json()
 
+
 def test_list_tasks(auth_token):
     response = client.get(
         "/v1/tasks",
@@ -70,6 +79,7 @@ def test_list_tasks(auth_token):
     )
     assert response.status_code == 200
     assert "tasks" in response.json()
+
 
 def test_delete_task(auth_token):
     # First, create a task
@@ -88,6 +98,7 @@ def test_delete_task(auth_token):
     assert delete_response.status_code == 200
     assert delete_response.json() == {"message": "Task deleted successfully"}
 
+
 def test_summarize_text(auth_token):
     response = client.post(
         "/v1/nlp/summarize",
@@ -96,6 +107,7 @@ def test_summarize_text(auth_token):
     )
     assert response.status_code == 200
     assert "summary" in response.json()
+
 
 def test_generate_text(auth_token):
     response = client.post(
@@ -106,6 +118,7 @@ def test_generate_text(auth_token):
     assert response.status_code == 200
     assert "generated_text" in response.json()
 
+
 def test_analyze_sentiment(auth_token):
     response = client.post(
         "/v1/nlp/sentiment",
@@ -115,6 +128,7 @@ def test_analyze_sentiment(auth_token):
     assert response.status_code == 200
     assert "sentiment" in response.json()
 
+
 def test_fetch_emails(auth_token):
     response = client.get(
         "/v1/email",
@@ -123,6 +137,7 @@ def test_fetch_emails(auth_token):
     )
     assert response.status_code == 200
     assert "emails" in response.json()
+
 
 def test_send_email(auth_token):
     response = client.post(
@@ -137,6 +152,7 @@ def test_send_email(auth_token):
     assert response.status_code == 200
     assert response.json() == {"message": "Email sent successfully"}
 
+
 def test_add_to_vectordb(auth_token):
     response = client.post(
         "/v1/vectordb/add",
@@ -149,6 +165,7 @@ def test_add_to_vectordb(auth_token):
     )
     assert response.status_code == 200
     assert response.json() == {"message": "Document added successfully"}
+
 
 def test_query_vectordb(auth_token):
     response = client.post(
@@ -163,6 +180,7 @@ def test_query_vectordb(auth_token):
     assert response.status_code == 200
     assert "results" in response.json()
 
+
 def test_create_backup(auth_token):
     response = client.post(
         "/v1/system/backup",
@@ -170,6 +188,7 @@ def test_create_backup(auth_token):
     )
     assert response.status_code == 200
     assert response.json() == {"message": "Backup process started"}
+
 
 def test_sync_data(auth_token):
     response = client.post(
@@ -179,9 +198,11 @@ def test_sync_data(auth_token):
     assert response.status_code == 200
     assert response.json() == {"message": "Sync process started"}
 
+
 def test_unauthorized_access():
     response = client.get("/v1/user/info")
     assert response.status_code == 401
+
 
 def test_not_found():
     response = client.get("/v1/nonexistent_endpoint")

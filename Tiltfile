@@ -21,6 +21,7 @@ dc_resource('redis', labels=["cache"])
 dc_resource('celery_worker', labels=["worker"], image='mypia-celery_beat')
 dc_resource('celery_beat', labels=["scheduler"], image='mypia-celery_worker')
 dc_resource('chroma_db', labels=["vector_db"])
+dc_resource('postman', labels=["testing"])
 
 # Configure file watching
 watch_file('./docker-compose.yml')

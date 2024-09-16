@@ -1,5 +1,6 @@
 from llama_cpp import Llama
 
+
 class LlamaCppInterface:
     def __init__(self, model_path, db_manager=None):
         self.model = Llama(model_path=model_path)

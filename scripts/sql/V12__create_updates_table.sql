@@ -1,0 +1,6 @@
+CREATE TABLE updates (
+    id SERIAL PRIMARY KEY,
+    version VARCHAR(20),
+    applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20)
+);
