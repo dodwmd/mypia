@@ -1,9 +1,7 @@
 from llama_cpp import Llama
-from personal_ai_assistant.database.db_manager import DatabaseManager
-
 
 class LlamaCppInterface:
-    def __init__(self, model_path: str, db_manager: DatabaseManager):
+    def __init__(self, model_path, db_manager=None):
         self.model = Llama(model_path=model_path)
         self.db_manager = db_manager
 

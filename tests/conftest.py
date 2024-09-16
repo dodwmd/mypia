@@ -12,6 +12,7 @@ from personal_ai_assistant.email.imap_client import EmailClient
 from personal_ai_assistant.calendar.caldav_client import CalDAVClient
 from personal_ai_assistant.github.github_client import GitHubClient
 from pydantic import SecretStr
+from typing import Optional, Dict, Any
 
 # Add the project root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

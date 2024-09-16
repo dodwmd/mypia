@@ -68,4 +68,4 @@ RUN python -m spacy download en_core_web_sm
 COPY . /app/
 
 # Run the application
-CMD ["python", "-m", "personal_ai_assistant.cli"]
+CMD ["uvicorn", "personal_ai_assistant.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

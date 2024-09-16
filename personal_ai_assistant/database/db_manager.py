@@ -1,62 +1,36 @@
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
-from .models import Base, User, UserPreference
-from personal_ai_assistant.utils.encryption import EncryptionManager
-from typing import List, Dict, Any, Optional
-from personal_ai_assistant.config import settings
-from datetime import datetime
-
+from sqlalchemy.orm import sessionmaker
+from personal_ai_assistant.database.base import Base
+from typing import Optional, List, Dict, Any
 
 class DatabaseManager:
-    def __init__(self, database_url: str):
-        self.engine = create_engine(settings.database_url)
-        self.Session = sessionmaker(bind=self.engine)
+    def __init__(self, database_url):
+        self.engine = create_engine(database_url)
+        Base.metadata.create_all(self.engine)
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
 
-    def init_db():
-        engine = create_engine(settings.database_url)
-        Base.metadata.create_all(engine)
-
-    def create_user(self, username: str, email: str, password: str) -> int:
-        with self.Session() as session:
-            hashed_password = EncryptionManager.hash_password(password)
-            user = User(username=username, email=email, password_hash=hashed_password)
-            session.add(user)
-            session.commit()
-            return user.id
-
-    def get_user_by_username(self, username: str) -> Optional[User]:
-        with self.Session() as session:
+    def get_user_by_username(self, username: str) -> Optional['User']:
+        from personal_ai_assistant.models.user import User
+        with self.SessionLocal() as session:
             return session.query(User).filter(User.username == username).first()
 
-    def get_user_by_id(self, user_id: int) -> Optional[User]:
-        with self.Session() as session:
+    def get_user_by_id(self, user_id: int) -> Optional['User']:
+        from personal_ai_assistant.models.user import User
+        with self.SessionLocal() as session:
             return session.query(User).filter(User.id == user_id).first()
 
-    def update_user_last_login(self, user_id: int):
-        with self.Session() as session:
-            user = session.query(User).filter(User.id == user_id).first()
-            if user:
-                user.last_login = datetime.utcnow()
-                session.commit()
-
-    # ... (other methods remain similar, but add user_id parameter where necessary)
-
-    def get_user_preferences(self, user_id: int) -> List[Dict[str, Any]]:
-        with self.Session() as session:
-            prefs = session.query(UserPreference).filter(UserPreference.user_id == user_id).all()
-            return [{"key": pref.key, "value": pref.value} for pref in prefs]
-
-    def set_user_preference(self, user_id: int, key: str, value: str):
-        with self.Session() as session:
-            pref = session.query(UserPreference).filter(
-                UserPreference.user_id == user_id,
-                UserPreference.key == key
-            ).first()
-            if pref:
-                pref.value = value
-            else:
-                pref = UserPreference(user_id=user_id, key=key, value=value)
-                session.add(pref)
+    def create_contact_submission(self, name: str, email: str, message: str):
+        from personal_ai_assistant.models.contact import ContactSubmission
+        with self.SessionLocal() as session:
+            new_submission = ContactSubmission(name=name, email=email, message=message)
+            session.add(new_submission)
             session.commit()
+            session.refresh(new_submission)
+            return new_submission
 
-    # ... (implement other user-specific methods)
+    def get_contact_submissions(self, skip: int = 0, limit: int = 100) -> List['ContactSubmission']:
+        from personal_ai_assistant.models.contact import ContactSubmission
+        with self.SessionLocal() as session:
+            return session.query(ContactSubmission).offset(skip).limit(limit).all()
+
+    # ... (other methods)
