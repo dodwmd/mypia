@@ -2,6 +2,20 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from personal_ai_assistant.database.base import Base
 from typing import Optional, List, Dict, Any
+from sqlalchemy.ext.declarative import declarative_base
+from personal_ai_assistant.config import settings
+
+engine = create_engine(settings.database_url)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 class DatabaseManager:
     def __init__(self, database_url):

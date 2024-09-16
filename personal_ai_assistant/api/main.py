@@ -15,11 +15,11 @@ from personal_ai_assistant.github.github_client import GitHubClient
 from personal_ai_assistant.vector_db.chroma_db import ChromaDBManager
 from personal_ai_assistant.updater.update_manager import UpdateManager
 from personal_ai_assistant.utils.backup_manager import BackupManager
-from personal_ai_assistant.utils.encryption_manager import EncryptionManager
+from personal_ai_assistant.utils.encryption import EncryptionManager
 from personal_ai_assistant.sync.sync_manager import SyncManager
 from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
 from personal_ai_assistant.config import settings
-from personal_ai_assistant.database.db import SessionLocal, engine
+from personal_ai_assistant.database.db_manager import SessionLocal, engine
 from personal_ai_assistant.database import models
 from personal_ai_assistant.utils.logging_config import setup_logging
 

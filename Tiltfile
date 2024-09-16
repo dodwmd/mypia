@@ -43,3 +43,11 @@ local_resource(
     labels=["testing"],
     deps=['.']
 )
+
+# Add a resource for the frontend development server
+local_resource(
+    'frontend-dev',
+    serve_cmd='cd frontend && npm run dev',
+    labels=["frontend"],
+    deps=['./frontend/src', './frontend/app']
+)

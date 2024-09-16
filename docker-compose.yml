@@ -20,8 +20,8 @@ services:
     depends_on:
       - db
       - redis
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
 
   db:
     image: postgres:13
@@ -33,11 +33,15 @@ services:
       - POSTGRES_DB=mypia
       - POSTGRES_USER=mypia
       - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5432:5432"
 
   redis:
     image: redis:6
     volumes:
       - redis_data:/data
+    ports:
+      - "6379:6379"
 
   celery_worker:
     build: .
@@ -69,6 +73,8 @@ services:
     image: chromadb/chroma:latest
     volumes:
       - chroma_data:/chroma/chroma
+    ports:
+      - "8001:8001"
 
 volumes:
   postgres_data:

@@ -1,20 +1,22 @@
 from cryptography.fernet import Fernet
 import base64
 import bcrypt
-
+from typing import Optional
 
 class EncryptionManager:
-    def __init__(self, encryption_key: str or bytes):
+    def __init__(self, encryption_key: Optional[str] = None):
         self.key = self._get_or_create_key(encryption_key)
         self.fernet = Fernet(self.key)
 
-    def _get_or_create_key(self, encryption_key: str or bytes):
-        if isinstance(encryption_key, str):
+    def _get_or_create_key(self, encryption_key: Optional[str]):
+        if encryption_key is None:
+            return Fernet.generate_key()
+        elif isinstance(encryption_key, str):
             return base64.urlsafe_b64encode(encryption_key.encode())
         elif isinstance(encryption_key, bytes):
             return base64.urlsafe_b64encode(encryption_key)
         else:
-            return Fernet.generate_key()
+            raise ValueError("Invalid encryption key type")
 
     def encrypt(self, data: str) -> str:
         return self.fernet.encrypt(data.encode()).decode()
