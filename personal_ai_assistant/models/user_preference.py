@@ -6,8 +6,8 @@ class UserPreference(Base):
     __tablename__ = "user_preferences"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    theme = Column(String, default="light")
-    language = Column(String, default="en")
+    key = Column(String, index=True)
+    value = Column(String)
+    user_id = Column(Integer, ForeignKey("users.id"))
 
     user = relationship("User", back_populates="preferences")

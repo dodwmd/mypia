@@ -3,26 +3,22 @@ import os
 import base64
 import secrets
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from personal_ai_assistant.database.base import Base
+from personal_ai_assistant.database.base import Base, get_db
 from personal_ai_assistant.models.user import User
 import personal_ai_assistant.database.models
-from personal_ai_assistant.config import settings
-from personal_ai_assistant.database.db_manager import DatabaseManager, get_db
+from personal_ai_assistant.config.config import settings
+from personal_ai_assistant.database.db_manager import DatabaseManager
 from personal_ai_assistant.auth.auth_manager import AuthManager
 from personal_ai_assistant.utils.encryption import EncryptionManager
 from personal_ai_assistant.email.imap_client import EmailClient
 from personal_ai_assistant.calendar.caldav_client import CalDAVClient
 from personal_ai_assistant.github.github_client import GitHubClient
 from pydantic import SecretStr
-import uuid
 from datetime import datetime, timedelta
-from personal_ai_assistant.models.calendar_event import CalendarEvent
-from personal_ai_assistant.models.email import Email
-from personal_ai_assistant.models.task import Task
-from personal_ai_assistant.models.user_preference import UserPreference
+import uuid
 
 # Add the project root directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -53,10 +49,8 @@ def db_session(engine, tables):
 
 
 @pytest.fixture(scope="function")
-def db_manager(db_session):
-    manager = DatabaseManager(settings.database_url)
-    manager.SessionLocal = lambda: db_session
-    return manager
+def db_manager():
+    return DatabaseManager(settings.database_url)
 
 
 @pytest.fixture(scope="function")
@@ -70,16 +64,13 @@ def auth_manager(db_manager, encryption_manager):
 
 
 @pytest.fixture(scope="function")
-def test_user(db_manager, encryption_manager):
+def test_user(auth_manager):
     unique_id = uuid.uuid4().hex[:8]
     username = f"testuser_{unique_id}"
     email = f"test_{unique_id}@example.com"
     password = "testpassword"
-    hashed_password = encryption_manager.hash_password(password)
-    user = db_manager.create_user(username, email, hashed_password)
-    print(f"Created test user: {username}")  # Add this line for debugging
-    yield user
-    db_manager.delete_user(user.id)
+    user = auth_manager.create_user(username, email, password)
+    return user
 
 
 @pytest.fixture
@@ -88,25 +79,15 @@ def auth_token(client, test_user):
         "/v1/auth/token",
         data={"username": test_user.username, "password": "testpassword"}
     )
-    print(f"Auth response: {response.status_code}, {response.text}")  # Add this line for debugging
-    assert response.status_code == 200, f"Authentication failed: {response.text}"
+    assert response.status_code == 200, f"Login failed: {response.text}"
     return response.json()["access_token"]
 
 
 @pytest.fixture
-def client(db_session, auth_manager):
-    from fastapi.testclient import TestClient
-    from personal_ai_assistant.api.main import app
-    from personal_ai_assistant.database.db_manager import get_db
-
-    def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
+def client(db_manager, auth_manager):
+    app.dependency_overrides[DatabaseManager] = lambda: db_manager
     app.dependency_overrides[AuthManager] = lambda: auth_manager
-
-    with TestClient(app) as client:
-        yield client
+    return TestClient(app)
 
 
 @pytest.fixture
@@ -183,20 +164,6 @@ def mock_settings(monkeypatch):
     }
     for key, value in test_settings.items():
         monkeypatch.setattr(settings, key, value)
-
-
-@pytest.fixture(autouse=True)
-def mock_db_manager(db_session, monkeypatch):
-    mock_manager = DatabaseManager(settings.database_url)
-    mock_manager.SessionLocal = lambda: db_session
-    monkeypatch.setattr("personal_ai_assistant.database.db_manager.DatabaseManager",
-                        lambda *args, **kwargs: mock_manager)
-    return mock_manager
-
-
-@pytest.fixture
-def mock_db_manager_instance():
-    return MagicMock(spec=DatabaseManager)
 
 
 @pytest.fixture
@@ -295,8 +262,8 @@ def test_task(db_manager, test_user):
 
 
 @pytest.fixture
-def test_user_preference(db_manager, test_user):
-    preference = db_manager.create_user_preference(
+def test_user_preference(auth_manager, test_user):
+    preference = auth_manager.create_user_preference(
         user_id=test_user.id,
         theme="dark",
         language="en"

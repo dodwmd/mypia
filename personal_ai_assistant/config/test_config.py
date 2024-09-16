@@ -1,25 +1,26 @@
-from pydantic import BaseSettings, SecretStr
-from typing import Optional
-
+from .base_settings import BaseSettings
 
 class TestConfig(BaseSettings):
-    database_url: str
-    encryption_key: Optional[SecretStr] = None
-    llm_model_path: str
-    embedding_model: str
-    chroma_db_path: str
-    email_host: str
-    smtp_host: str
-    email_username: str
-    email_password: SecretStr
-    caldav_url: str
-    caldav_username: str
-    caldav_password: SecretStr
-    github_token: SecretStr
-    redis_url: str = "redis://redis:6379/0"  # Add this line with a default value
+    # Override settings for testing
+    debug: bool = True
+    database_url: str = "sqlite:///./test.db"
+    chroma_db_path: str = "/tmp/test_chroma_db"
+    redis_url: str = "redis://localhost:6379/1"
+    llm_model_path: str = "/tmp/test_llm_model.gguf"
+    embedding_model: str = "test_embedding_model"
+    email_host: str = "test.example.com"
+    email_username: str = "test@example.com"
+    email_password: str = "test_password"
+    caldav_url: str = "https://test.example.com/caldav"
+    caldav_username: str = "test_user"
+    caldav_password: str = "test_password"
+    github_token: str = "test_github_token"
+    encryption_key: str = "test_encryption_key"
+    backup_dir: str = "/tmp/test_backups"
+    secret_key: str = "test_secret_key"
+    user_registration_open: bool = True
 
     class Config:
         env_file = ".env.test"
-
 
 test_settings = TestConfig()

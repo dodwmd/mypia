@@ -8,8 +8,8 @@ class CalendarEvent(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True)
     description = Column(String)
-    start_time = Column(DateTime(timezone=True))
-    end_time = Column(DateTime(timezone=True))
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
     user_id = Column(Integer, ForeignKey("users.id"))
 
     user = relationship("User", back_populates="calendar_events")
