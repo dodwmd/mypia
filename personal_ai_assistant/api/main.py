@@ -23,6 +23,7 @@ from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
 from personal_ai_assistant.config import settings
 from personal_ai_assistant.database.db_manager import SessionLocal, engine, DatabaseManager
 from personal_ai_assistant.database import models
+from personal_ai_assistant.database.base import Base
 from personal_ai_assistant.utils.logging_config import setup_logging
 from alembic.config import Config
 from alembic import command
@@ -33,7 +34,7 @@ api_router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # Setup database
-models.Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 # Setup logging
 setup_logging()
@@ -171,11 +172,21 @@ def get_db():
 async def startup_event():
     """Perform startup tasks."""
     logger.info("Starting up MyPIA API")
-    
+
+    # Check database connection
+    try:
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        logger.info("Database connection successful")
+    except Exception as e:
+        logger.error(f"Database connection failed: {str(e)}")
+    finally:
+        db.close()
+
     # Run database migrations
     alembic_cfg = Config("alembic.ini")
     command.upgrade(alembic_cfg, "head")
-    
+
     # Add any other necessary startup tasks here
 
 
@@ -207,13 +218,19 @@ async def register_user(
     user: User,
     auth_manager: AuthManager = Depends(get_auth_manager)
 ):
-    created_user = auth_manager.create_user(user.username, user.email, user.password)
-    if not created_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already exists",
-        )
-    return {"message": "User created successfully"}
+    try:
+        created_user = auth_manager.create_user(user.username, user.email, user.password)
+        if not created_user:
+            logger.warning(f"User creation failed for username: {user.username}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User already exists",
+            )
+        logger.info(f"User created successfully: {user.username}")
+        return {"message": "User created successfully"}
+    except Exception as e:
+        logger.error(f"Error during user registration: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @api_router.post("/auth/token", response_model=Token)
@@ -507,6 +524,7 @@ async def list_backups(
 # Include the API router
 app.include_router(api_router, prefix="/v1")
 
+
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -518,6 +536,7 @@ def custom_openapi():
     )
     app.openapi_schema = openapi_schema
     return app.openapi_schema
+
 
 app.openapi = custom_openapi
 

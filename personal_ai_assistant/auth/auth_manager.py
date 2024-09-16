@@ -1,23 +1,22 @@
 from personal_ai_assistant.database.db_manager import DatabaseManager
 from personal_ai_assistant.utils.encryption import EncryptionManager
 from personal_ai_assistant.utils.exceptions import AuthenticationError
+from personal_ai_assistant.models.user import User  # Add this import
 import jwt
 from datetime import datetime, timedelta
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 
 class AuthManager:
     def __init__(self, db_manager: DatabaseManager, encryption_manager: EncryptionManager):
         self.db_manager = db_manager
         self.encryption_manager = encryption_manager
-        self.secret_key = encryption_manager.key  # Use the encryption key as the JWT secret
 
-    def authenticate_user(self, username: str, password: str) -> bool:
+    def authenticate_user(self, username: str, password: str) -> Optional[User]:
         user = self.db_manager.get_user_by_username(username)
         if user and self.encryption_manager.verify_password(password, user.password_hash):
-            self.db_manager.update_user_last_login(user.id)
-            return True
-        return False
+            return user
+        return None
 
     def create_user(self, username: str, email: str, password: str) -> int:
         hashed_password = self.encryption_manager.hash_password(password)

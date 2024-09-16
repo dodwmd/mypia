@@ -1,5 +1,6 @@
 from pydantic import BaseSettings, SecretStr, HttpUrl
 from typing import Optional
+import secrets
 
 
 class Settings(BaseSettings):
@@ -12,7 +13,7 @@ class Settings(BaseSettings):
     static_dir: str = "/app/static"
 
     # Database settings
-    database_url: str = "postgresql://mypia:mypia_password@db/mypia"
+    database_url: str = "sqlite:///./test.db"
     chroma_db_path: str = "/app/data/chroma_db"
     redis_url: str = "redis://redis:6379/0"
 
@@ -37,7 +38,7 @@ class Settings(BaseSettings):
     github_token: SecretStr = SecretStr("your_github_token")
 
     # Encryption settings
-    encryption_key: Optional[str] = None
+    encryption_key: str = secrets.token_urlsafe(32)  # Generate a default key if not provided
 
     # Backup settings
     backup_dir: str = "/app/backups"

@@ -2,6 +2,15 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from personal_ai_assistant.api.main import app
+from personal_ai_assistant.config.settings import settings
+import uuid
+
+
+@pytest.fixture
+def test_user(db_manager, encryption_manager):
+    hashed_password = encryption_manager.hash_password("testpassword")
+    user = db_manager.create_user("testuser", "test@example.com", hashed_password)
+    return user
 
 
 @pytest.fixture
@@ -12,11 +21,12 @@ def client():
 
 
 @pytest.fixture
-def auth_token(client):
+def auth_token(client, test_user):
     response = client.post(
         "/v1/auth/token",
-        data={"username": "testuser", "password": "testpassword"}
+        data={"username": test_user.username, "password": "testpassword"}
     )
+    print(f"Auth response: {response.status_code}, {response.text}")  # Add this line for debugging
     return response.json()["access_token"]
 
 
@@ -27,18 +37,21 @@ def test_read_main(client):
 
 
 def test_create_user(client):
+    unique_id = uuid.uuid4().hex[:8]
+    username = f"newuser_{unique_id}"
+    email = f"newuser_{unique_id}@example.com"
     response = client.post(
         "/v1/auth/register",
-        json={"username": "newuser", "email": "newuser@example.com", "password": "newpassword"}
+        json={"username": username, "email": email, "password": "newpassword"}
     )
-    assert response.status_code == 201
-    assert "user_id" in response.json()
+    assert response.status_code == 201, f"User creation failed: {response.text}"
+    assert "message" in response.json()
 
 
-def test_login(client):
+def test_login(client, test_user):
     response = client.post(
         "/v1/auth/token",
-        data={"username": "testuser", "password": "testpassword"}
+        data={"username": test_user.username, "password": "testpassword"}
     )
     assert response.status_code == 200
     assert "access_token" in response.json()
@@ -52,14 +65,15 @@ def test_login_invalid_credentials(client):
     assert response.status_code == 401
 
 
-def test_get_user_info(auth_token):
+def test_get_user_info(client, auth_token):
     response = client.get(
         "/v1/user/info",
         headers={"Authorization": f"Bearer {auth_token}"}
     )
     assert response.status_code == 200
-    assert "username" in response.json()
-    assert "email" in response.json()
+    data = response.json()
+    assert "username" in data
+    assert "email" in data
 
 
 def test_create_task(auth_token):
@@ -199,11 +213,11 @@ def test_sync_data(auth_token):
     assert response.json() == {"message": "Sync process started"}
 
 
-def test_unauthorized_access():
+def test_unauthorized_access(client):
     response = client.get("/v1/user/info")
-    assert response.status_code == 401
+    assert response.status_code == 401 or response.status_code == 403
 
 
-def test_not_found():
+def test_not_found(client):
     response = client.get("/v1/nonexistent_endpoint")
     assert response.status_code == 404

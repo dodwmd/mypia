@@ -1,8 +1,7 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from personal_ai_assistant.database.base import Base
-
 
 class User(Base):
     __tablename__ = "users"
@@ -16,8 +15,10 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
 
-    # Define relationships
-    tasks = relationship("Task", back_populates="user")
-    emails = relationship("Email", back_populates="user")
-    calendar_events = relationship("CalendarEvent", back_populates="user")
     notes = relationship("Note", back_populates="user")
+    calendar_events = relationship("CalendarEvent", back_populates="user")
+    emails = relationship("Email", back_populates="user")
+    tasks = relationship("Task", back_populates="user")
+    preferences = relationship("UserPreference", back_populates="user", uselist=False)
+
+    # Add any additional methods or properties here
