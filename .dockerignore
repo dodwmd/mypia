@@ -35,9 +35,9 @@ node_modules
 build
 dist
 
-# Ignore Docker files (optional, depending on your setup)
-# Dockerfile
-# docker-compose.yml
+# Ignore Docker files
+Dockerfile
+docker-compose.yml
 
-# Ignore any other large files or directories that are not needed in the Docker image
-# Add more entries as needed for your specific project
+data
+frontend
