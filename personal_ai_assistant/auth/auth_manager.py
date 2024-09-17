@@ -4,7 +4,6 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from personal_ai_assistant.models.user import User
-from personal_ai_assistant.config import settings
 from personal_ai_assistant.utils.encryption import EncryptionManager
 from personal_ai_assistant.database.db_manager import DatabaseManager
 

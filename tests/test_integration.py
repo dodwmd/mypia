@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
 from personal_ai_assistant.api.main import app
-from personal_ai_assistant.api.dependencies import get_llm, get_auth_manager, get_db, get_text_processor
+from personal_ai_assistant.api.dependencies import get_llm, get_auth_manager, get_db
 from personal_ai_assistant.tasks.task_manager import TaskManager
 from personal_ai_assistant.llm.text_processor import TextProcessor
 from personal_ai_assistant.email.imap_client import EmailClient
@@ -162,7 +162,7 @@ def test_end_to_end_workflow(client, auth_token):
         )
         assert complete_response.status_code == 200
         completed_task = complete_response.json()
-        assert completed_task["completed"] == True
+        assert completed_task["completed"] is True  # Changed from == True to is True
 
     # The end-to-end workflow is complete
     print("End-to-end workflow test completed successfully")

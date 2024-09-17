@@ -25,7 +25,6 @@ def get_db():
     finally:
         db.close()
 
-
 class DatabaseManager:
     def __init__(self, database_url: str):
         self.engine = create_engine(database_url)
@@ -43,3 +42,4 @@ db_manager = DatabaseManager(settings.database_url)
 get_db = db_manager.get_db()
 
 # ... (other methods)
+

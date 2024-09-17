@@ -1,4 +1,6 @@
 from .base_settings import BaseSettings
+from pydantic import SecretStr
+from typing import Optional
 
 
 class TestConfig(BaseSettings):
@@ -11,18 +13,17 @@ class TestConfig(BaseSettings):
     embedding_model: str = "test_embedding_model"
     email_host: str = "test.example.com"
     email_username: str = "test@example.com"
-    email_password: str = "test_password"
+    email_password: SecretStr = SecretStr("test_password")
     caldav_url: str = "https://test.example.com/caldav"
     caldav_username: str = "test_user"
-    caldav_password: str = "test_password"
-    github_token: str = "test_github_token"
-    encryption_key: str = "test_encryption_key"
+    caldav_password: SecretStr = SecretStr("test_password")
+    github_token: SecretStr = SecretStr("test_github_token")
+    encryption_key: Optional[str] = "test_encryption_key"
     backup_dir: str = "/tmp/test_backups"
     secret_key: str = "test_secret_key"
     user_registration_open: bool = True
 
     class Config:
         env_file = ".env.test"
-
 
 test_settings = TestConfig()

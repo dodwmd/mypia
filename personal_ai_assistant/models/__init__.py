@@ -6,4 +6,6 @@ from .note import Note
 from .contact import Contact
 from .email import Email
 
+__all__ = ['User', 'Task', 'CalendarEvent', 'UserPreference', 'Note', 'Contact', 'Email']
+
 # Make sure all model classes are imported here

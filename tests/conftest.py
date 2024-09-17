@@ -1,9 +1,8 @@
 import sys
 import os
-import base64
-import secrets
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, Mock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from personal_ai_assistant.database.base_class import Base
