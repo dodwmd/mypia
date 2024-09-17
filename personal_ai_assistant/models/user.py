@@ -13,3 +13,4 @@ class User(Base):
     is_active = Column(Boolean, default=True)
 
     preferences = relationship("UserPreference", back_populates="user")
+    calendar_events = relationship("CalendarEvent", back_populates="user")
