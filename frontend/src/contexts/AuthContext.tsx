@@ -2,6 +2,7 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 
 interface User {
   id: string;
@@ -13,25 +14,28 @@ interface AuthContextType {
   user: User | null;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = Cookies.get('token');
     if (token) {
       fetchUserInfo(token);
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
   const fetchUserInfo = async (token: string) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/v1/auth/user/info', {
+      const response = await fetch('/v1/auth/user/info', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -40,17 +44,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userData = await response.json();
         setUser(userData);
       } else {
-        localStorage.removeItem('token');
+        Cookies.remove('token');
         setUser(null);
       }
     } catch (error) {
       console.error('Error fetching user info:', error);
+      Cookies.remove('token');
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const login = async (username: string, password: string) => {
+    setIsLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/v1/auth/token', {
+      const response = await fetch('/v1/auth/token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -63,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('token', data.access_token);
+        Cookies.set('token', data.access_token, { expires: 7 });
         await fetchUserInfo(data.access_token);
         router.push('/');
       } else {
@@ -72,37 +81,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Login error:', error);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    Cookies.remove('token');
     setUser(null);
     router.push('/login');
   };
 
-  const register = async (username: string, email: string, password: string) => {
-    try {
-      const response = await fetch('http://127.0.0.1:8000/v1/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email, password }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Registration failed');
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
-    }
-  };
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, register }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

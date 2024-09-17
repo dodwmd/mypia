@@ -1,42 +1,50 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from './layout/Sidebar';
 import Image from 'next/image';
 
 const ClientLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user === null && pathname !== '/login' && pathname !== '/register') {
-      router.push('/login');
-    } else {
-      setIsLoading(false);
+    if (!isLoading) {
+      if (!user && pathname !== '/login' && pathname !== '/register') {
+        router.push('/login');
+      } else if (user && (pathname === '/login' || pathname === '/register')) {
+        router.push('/');
+      }
     }
-  }, [user, router, pathname]);
+  }, [user, isLoading, pathname, router]);
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-800">
-        <Image
-          src="/img/loading.gif"
-          alt="Loading"
-          width={100}
-          height={100}
-        />
+        <div className="w-24 h-24 relative">
+          <Image
+            src="/img/loading.gif"
+            alt="Loading"
+            width={96}
+            height={96}
+            style={{ objectFit: 'contain' }}
+            unoptimized
+          />
+        </div>
         <p className="mt-4 text-white text-xl">Loading</p>
       </div>
     );
   }
 
-  // If we're on the login or register page, don't show the sidebar
-  if (pathname === '/login' || pathname === '/register') {
+  if (!user && (pathname === '/login' || pathname === '/register')) {
     return <>{children}</>;
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (

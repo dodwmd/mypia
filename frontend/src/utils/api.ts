@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 import { isOffline } from './offline';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost/v1',
 });
 
 api.interceptors.request.use((config) => {

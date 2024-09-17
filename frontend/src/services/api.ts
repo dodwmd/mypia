@@ -1,7 +1,8 @@
 import axios from 'axios';
+import Cookies from 'js-cookie';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost/v1',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -31,3 +32,25 @@ api.interceptors.response.use((response) => {
 });
 
 export default api;
+
+const API_BASE_URL = '/v1'; // Adjust this to match your Nginx configuration
+
+export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+  const token = Cookies.get('token');
+  const headers = {
+    ...options.headers,
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+
+  const response = await fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+};

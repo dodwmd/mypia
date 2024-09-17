@@ -12,13 +12,10 @@ const EmailList: React.FC = () => {
 
   const fetchEmails = async () => {
     try {
-      setLoading(true);
       const fetchedEmails = await getEmails();
       setEmails(fetchedEmails);
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to fetch emails. Please try again later.');
-      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching emails:', error);
     }
   };
 

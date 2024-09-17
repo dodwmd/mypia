@@ -1,5 +1,5 @@
 import React from 'react';
-import '../styles/globals.css';
+import '../styles/globals.css';  // Make sure this path is correct
 import { AuthProvider } from '../src/contexts/AuthContext';
 import ClientLayout from '../src/components/ClientLayout';
 

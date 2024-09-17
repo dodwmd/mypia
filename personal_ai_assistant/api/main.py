@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from personal_ai_assistant.api import auth, tasks, email, calendar, text_processing, github, vector_db, update, backup, web
+from personal_ai_assistant.api import auth, tasks, email, calendar, text_processing, github, vector_db, update, backup, web, vectordb
 from personal_ai_assistant.database.base import Base, engine
 import logging
 
@@ -11,7 +11,7 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["http://localhost:3000"],  # Add your frontend URL here
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
@@ -32,6 +32,7 @@ app.include_router(vector_db.router, prefix="/v1/vector_db", tags=["vector datab
 app.include_router(update.router, prefix="/v1/update", tags=["update"])
 app.include_router(backup.router, prefix="/v1/backup", tags=["backup"])
 app.include_router(web.router, prefix="/v1/web", tags=["web"])
+app.include_router(vectordb.router, prefix="/v1/vectordb", tags=["vectordb"])
 
 
 @app.get("/")
