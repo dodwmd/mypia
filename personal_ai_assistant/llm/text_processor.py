@@ -1,4 +1,3 @@
-from typing import Optional
 from personal_ai_assistant.llm.llama_cpp_interface import LlamaCppInterface
 
 

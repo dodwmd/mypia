@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import relationship
-from personal_ai_assistant.database.base_class import Base
+from personal_ai_assistant.database.base import Base
 
 
 class User(Base):

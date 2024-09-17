@@ -1,9 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from personal_ai_assistant.api import auth, tasks, email, calendar, text_processing, github, vector_db, update, backup, web
-from personal_ai_assistant.database.base_class import Base
-from personal_ai_assistant.database.base import engine
-import personal_ai_assistant.database.models  # Import this to ensure all models are loaded
+from personal_ai_assistant.database.base import Base, engine
 import logging
 
 Base.metadata.create_all(bind=engine)

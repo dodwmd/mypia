@@ -1,7 +1,5 @@
-from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-import uuid
 from personal_ai_assistant.calendar.caldav_client import CalDAVClient
 from personal_ai_assistant.email.imap_client import EmailClient
 from personal_ai_assistant.llm.text_processor import TextProcessor
@@ -11,30 +9,48 @@ from personal_ai_assistant.models.task import Task
 from sqlalchemy.orm import Session
 
 
-class Task(ABC):
-    def __init__(self, title: str, description: str = ""):
-        self.id = str(uuid.uuid4())
-        self.title = title
-        self.description = description
-        self.created_at = datetime.now()
-        self.completed_at = None
+class TaskManager:
+    def __init__(self, db: Session):
+        self.db = db
 
-    @abstractmethod
-    async def execute(self) -> Dict[str, Any]:
-        pass
+    async def create_task(self, title: str, description: str) -> Task:
+        new_task = Task(title=title, description=description)
+        self.db.add(new_task)
+        await self.db.commit()
+        await self.db.refresh(new_task)
+        return new_task
 
-    def mark_completed(self):
-        self.completed_at = datetime.now()
+    async def get_all_tasks(self) -> List[Task]:
+        return await self.db.query(Task).all()
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "title": self.title,
-            "description": self.description,
-            "created_at": self.created_at.isoformat(),
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "type": self.__class__.__name__
-        }
+    async def get_task(self, task_id: int) -> Task:
+        return self.db.query(Task).filter(Task.id == task_id).first()
+
+    async def update_task(self, task_id: int, title: str, description: str) -> Task:
+        task = await self.get_task(task_id)
+        if task:
+            task.title = title
+            task.description = description
+            self.db.commit()
+            self.db.refresh(task)
+        return task
+
+    async def delete_task(self, task_id: int) -> bool:
+        task = await self.get_task(task_id)
+        if task:
+            self.db.delete(task)
+            self.db.commit()
+            return True
+        return False
+
+    async def complete_task(self, task_id: int) -> Task:
+        task = await self.get_task(task_id)
+        if task:
+            task.completed = True
+            task.completed_at = datetime.utcnow()
+            self.db.commit()
+            self.db.refresh(task)
+        return task
 
 
 class ScheduledTask(Task):
@@ -184,47 +200,3 @@ class GeneralInfoLookupTask(Task):
     def to_dict(self) -> Dict[str, Any]:
         task_dict = super().to_dict()
         return task_dict
-
-
-class TaskManager:
-    def __init__(self, db: Session):
-        self.db = db
-
-    async def create_task(self, title: str, description: str) -> Task:
-        new_task = Task(title=title, description=description)
-        self.db.add(new_task)
-        await self.db.commit()
-        await self.db.refresh(new_task)
-        return new_task
-
-    async def get_all_tasks(self) -> List[Task]:
-        return await self.db.query(Task).all()
-
-    async def get_task(self, task_id: int) -> Task:
-        return self.db.query(Task).filter(Task.id == task_id).first()
-
-    async def update_task(self, task_id: int, title: str, description: str) -> Task:
-        task = await self.get_task(task_id)
-        if task:
-            task.title = title
-            task.description = description
-            self.db.commit()
-            self.db.refresh(task)
-        return task
-
-    async def delete_task(self, task_id: int) -> bool:
-        task = await self.get_task(task_id)
-        if task:
-            self.db.delete(task)
-            self.db.commit()
-            return True
-        return False
-
-    async def complete_task(self, task_id: int) -> Task:
-        task = await self.get_task(task_id)
-        if task:
-            task.completed = True
-            task.completed_at = datetime.utcnow()
-            self.db.commit()
-            self.db.refresh(task)
-        return task

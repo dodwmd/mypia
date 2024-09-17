@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
 from personal_ai_assistant.tasks.task_manager import TaskManager
-from personal_ai_assistant.models.task import Task  # Add this import
 from personal_ai_assistant.api.dependencies import get_db
 import logging
 

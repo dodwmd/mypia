@@ -5,9 +5,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Dict, Any
 import email.utils
-import aiosmtplib
 import smtplib
-from personal_ai_assistant.config import settings
 
 
 class EmailClient:

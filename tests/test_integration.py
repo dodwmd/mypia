@@ -5,7 +5,6 @@ from personal_ai_assistant.api.main import app
 from personal_ai_assistant.api.dependencies import get_llm, get_auth_manager, get_db
 from personal_ai_assistant.tasks.task_manager import TaskManager
 from personal_ai_assistant.llm.text_processor import TextProcessor
-from personal_ai_assistant.email.imap_client import EmailClient
 
 
 @pytest.fixture

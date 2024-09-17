@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 import logging
 
 from personal_ai_assistant.vector_db.chroma_db import ChromaDBManager

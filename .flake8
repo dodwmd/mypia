@@ -1,5 +1,6 @@
 [flake8]
 exclude =
+    alembic,
     node_modules,
     .git,
     __pycache__,

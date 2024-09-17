@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
-from personal_ai_assistant.database.base_class import Base
+from personal_ai_assistant.database.base import Base
 from datetime import datetime
 
 
