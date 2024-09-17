@@ -5,7 +5,8 @@ from .user_preference import UserPreference
 from .note import Note
 from .contact import Contact
 from .email import Email
+from .token import Token
 
-__all__ = ['User', 'Task', 'CalendarEvent', 'UserPreference', 'Note', 'Contact', 'Email']
+__all__ = ['User', 'Task', 'CalendarEvent', 'UserPreference', 'Note', 'Contact', 'Email', 'Token']
 
 # Make sure all model classes are imported here

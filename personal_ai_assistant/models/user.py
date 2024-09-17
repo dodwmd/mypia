@@ -14,3 +14,6 @@ class User(Base):
 
     preferences = relationship("UserPreference", back_populates="user")
     calendar_events = relationship("CalendarEvent", back_populates="user")
+    notes = relationship("Note", back_populates="user")
+    emails = relationship("Email", back_populates="user")
+    contacts = relationship("Contact", back_populates="user")
