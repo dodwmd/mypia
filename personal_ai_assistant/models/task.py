@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
-from personal_ai_assistant.database.base import Base
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from personal_ai_assistant.database.base_class import Base
+from datetime import datetime
+
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -8,7 +9,16 @@ class Task(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True)
     description = Column(String)
-    is_completed = Column(Boolean, default=False)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)
 
-    user = relationship("User", back_populates="tasks")
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed": self.completed,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None
+        }

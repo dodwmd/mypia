@@ -1,6 +1,7 @@
 from pydantic import BaseSettings, SecretStr
 from typing import Optional
 
+
 class BaseSettings(BaseSettings):
     app_name: str = "Personal AI Assistant"
     debug: bool = False

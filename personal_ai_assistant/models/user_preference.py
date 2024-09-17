@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from personal_ai_assistant.database.base import Base
 
+
 class UserPreference(Base):
     __tablename__ = "user_preferences"
 

@@ -11,18 +11,22 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 logger = logging.getLogger(__name__)
 
+
 class VectorDBDocument(BaseModel):
     collection_name: str
     document: str
     metadata: Optional[dict] = None
+
 
 class VectorDBQuery(BaseModel):
     collection_name: str
     query_text: str
     n_results: int = 5
 
+
 def get_chroma_db():
     return ChromaDBManager(settings.chroma_db_path)
+
 
 @router.post("/add")
 async def add_to_vectordb(
@@ -38,6 +42,7 @@ async def add_to_vectordb(
         logger.error(f"Error adding document to vector database: {str(e)}")
         raise HTTPException(status_code=500, detail="Error adding document to vector database")
 
+
 @router.post("/query")
 async def query_vectordb(
     query: VectorDBQuery,
@@ -51,4 +56,3 @@ async def query_vectordb(
     except Exception as e:
         logger.error(f"Error querying vector database: {str(e)}")
         raise HTTPException(status_code=500, detail="Error querying vector database")
-

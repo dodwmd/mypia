@@ -38,6 +38,7 @@ class DatabaseManager:
         finally:
             db.close()
 
+
 db_manager = DatabaseManager(settings.database_url)
 get_db = db_manager.get_db()
 

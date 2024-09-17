@@ -6,17 +6,19 @@ from email.mime.multipart import MIMEMultipart
 from typing import List, Dict, Any
 import email.utils
 import aiosmtplib
+import smtplib
+from personal_ai_assistant.config import settings
 
 
 class EmailClient:
-    def __init__(self, imap_host: str, smtp_host: str, username: str, password: str):
-        self.imap_host = imap_host
-        self.smtp_host = smtp_host
+    def __init__(self, imap_server: str, smtp_server: str, username: str, password: str):
+        self.imap_server = imap_server
+        self.smtp_server = smtp_server
         self.username = username
         self.password = password
 
     async def fetch_emails(self, limit: int = 10) -> List[Dict[str, Any]]:
-        imap_client = aioimaplib.IMAP4_SSL(self.imap_host)
+        imap_client = aioimaplib.IMAP4_SSL(self.imap_server)
         await imap_client.wait_hello_from_server()
         await imap_client.login(self.username, self.password)
         await imap_client.select('INBOX')
@@ -57,15 +59,14 @@ class EmailClient:
         msg['To'] = to
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
-        smtp = aiosmtplib.SMTP(hostname=self.smtp_host, port=587, use_tls=False)
-        await smtp.connect()
-        await smtp.starttls()
-        await smtp.login(self.username, self.password)
-        await smtp.send_message(msg)
-        await smtp.quit()
+
+        with smtplib.SMTP(self.smtp_server, 587) as server:
+            server.starttls()
+            server.login(self.username, self.password)
+            server.send_message(msg)
 
     async def fetch_new_emails(self, last_uid: int = 0) -> List[Dict[str, Any]]:
-        imap_client = aioimaplib.IMAP4_SSL(self.imap_host)
+        imap_client = aioimaplib.IMAP4_SSL(self.imap_server)
         await imap_client.wait_hello_from_server()
         await imap_client.login(self.username, self.password)
         await imap_client.select('INBOX')

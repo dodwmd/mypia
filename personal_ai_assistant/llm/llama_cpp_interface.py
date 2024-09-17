@@ -8,7 +8,7 @@ class LlamaCppInterface:
             raise FileNotFoundError(f"Model file not found at {model_path}")
         self.llm = Llama(model_path=model_path)
 
-    def generate(self, prompt: str, max_tokens: int = 100) -> str:
+    async def generate(self, prompt: str, max_tokens: int = 100) -> str:
         output = self.llm(prompt, max_tokens=max_tokens)
         return output['choices'][0]['text']
 

@@ -8,8 +8,10 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 logger = logging.getLogger(__name__)
 
+
 def get_github_client():
     return GitHubClient(settings.GITHUB_TOKEN)
+
 
 @router.get("/repos")
 async def get_github_repos(
@@ -24,6 +26,7 @@ async def get_github_repos(
     except Exception as e:
         logger.error(f"Error fetching GitHub repos for user {username}: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching GitHub repos")
+
 
 @router.get("/issues")
 async def get_github_issues(

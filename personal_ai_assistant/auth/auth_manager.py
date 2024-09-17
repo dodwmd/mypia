@@ -10,6 +10,7 @@ from personal_ai_assistant.database.db_manager import DatabaseManager
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v1/auth/token")
 
+
 class AuthManager:
     def __init__(self, db_manager: DatabaseManager, encryption_manager: EncryptionManager):
         self.db_manager = db_manager
@@ -40,7 +41,7 @@ class AuthManager:
         else:
             expire = datetime.utcnow() + timedelta(minutes=15)
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+        encoded_jwt = jwt.encode(to_encode, str(settings.secret_key), algorithm=settings.algorithm)
         return str(encoded_jwt)  # Ensure the return value is a string
 
     def get_current_user(self, token: str = Depends(oauth2_scheme)):

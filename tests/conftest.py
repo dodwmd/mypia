@@ -6,10 +6,8 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from personal_ai_assistant.database.base import Base, get_db
-from personal_ai_assistant.models.user import User
-import personal_ai_assistant.database.models
-from personal_ai_assistant.config.config import settings
+from personal_ai_assistant.database.base_class import Base
+from personal_ai_assistant.config import settings
 from personal_ai_assistant.database.db_manager import DatabaseManager
 from personal_ai_assistant.auth.auth_manager import AuthManager
 from personal_ai_assistant.utils.encryption import EncryptionManager

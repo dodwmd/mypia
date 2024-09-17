@@ -5,3 +5,5 @@ from .user_preference import UserPreference
 from .note import Note
 from .contact import Contact
 from .email import Email
+
+# Make sure all model classes are imported here

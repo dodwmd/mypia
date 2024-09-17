@@ -7,6 +7,8 @@ from personal_ai_assistant.email.imap_client import EmailClient
 from personal_ai_assistant.llm.text_processor import TextProcessor
 from personal_ai_assistant.web.scraper import WebScraper
 from personal_ai_assistant.github.github_client import GitHubClient
+from personal_ai_assistant.models.task import Task
+from sqlalchemy.orm import Session
 
 
 class Task(ABC):
@@ -185,27 +187,44 @@ class GeneralInfoLookupTask(Task):
 
 
 class TaskManager:
-    def __init__(self):
-        self.tasks: List[Task] = []
+    def __init__(self, db: Session):
+        self.db = db
 
-    def add_task(self, task: Task):
-        self.tasks.append(task)
+    async def create_task(self, title: str, description: str) -> Task:
+        new_task = Task(title=title, description=description)
+        self.db.add(new_task)
+        await self.db.commit()
+        await self.db.refresh(new_task)
+        return new_task
 
-    def get_task(self, task_id: str) -> Task:
-        for task in self.tasks:
-            if task.id == task_id:
-                return task
-        raise ValueError(f"Task with id {task_id} not found")
+    async def get_all_tasks(self) -> List[Task]:
+        return await self.db.query(Task).all()
 
-    def list_tasks(self) -> List[Dict[str, Any]]:
-        return [task.to_dict() for task in self.tasks]
+    async def get_task(self, task_id: int) -> Task:
+        return self.db.query(Task).filter(Task.id == task_id).first()
 
-    async def execute_task(self, task_id: str) -> Dict[str, Any]:
-        task = self.get_task(task_id)
-        result = await task.execute()
-        task.mark_completed()
-        return result
+    async def update_task(self, task_id: int, title: str, description: str) -> Task:
+        task = await self.get_task(task_id)
+        if task:
+            task.title = title
+            task.description = description
+            self.db.commit()
+            self.db.refresh(task)
+        return task
 
-    def remove_task(self, task_id: str):
-        task = self.get_task(task_id)
-        self.tasks.remove(task)
+    async def delete_task(self, task_id: int) -> bool:
+        task = await self.get_task(task_id)
+        if task:
+            self.db.delete(task)
+            self.db.commit()
+            return True
+        return False
+
+    async def complete_task(self, task_id: int) -> Task:
+        task = await self.get_task(task_id)
+        if task:
+            task.completed = True
+            task.completed_at = datetime.utcnow()
+            self.db.commit()
+            self.db.refresh(task)
+        return task

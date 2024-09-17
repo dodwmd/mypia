@@ -7,8 +7,10 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 logger = logging.getLogger(__name__)
 
+
 def get_backup_manager():
     return BackupManager()
+
 
 @router.post("/create")
 async def create_backup(
@@ -23,6 +25,7 @@ async def create_backup(
         logger.error(f"Error creating backup: {str(e)}")
         raise HTTPException(status_code=500, detail="Error creating backup")
 
+
 @router.post("/restore")
 async def restore_backup(
     backup_file: str,
@@ -36,6 +39,7 @@ async def restore_backup(
     except Exception as e:
         logger.error(f"Error restoring backup: {str(e)}")
         raise HTTPException(status_code=500, detail="Error restoring backup")
+
 
 @router.get("/list")
 async def list_backups(

@@ -7,8 +7,10 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 logger = logging.getLogger(__name__)
 
+
 def get_web_scraper():
     return WebScraper()
+
 
 @router.get("/scrape")
 async def scrape_url(

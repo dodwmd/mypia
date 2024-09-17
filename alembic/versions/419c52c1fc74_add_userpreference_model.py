@@ -42,13 +42,14 @@ def downgrade() -> None:
     op.drop_column('user_preferences', 'language')
     op.drop_column('user_preferences', 'theme')
     op.create_table('contact_submissions',
-    sa.Column('id', sa.INTEGER(), autoincrement=True, nullable=False),
-    sa.Column('name', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('email', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('message', sa.TEXT(), autoincrement=False, nullable=True),
-    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True), server_default=sa.text('now()'), autoincrement=False, nullable=True),
-    sa.PrimaryKeyConstraint('id', name='contact_submissions_pkey')
-    )
+                    sa.Column('id', sa.INTEGER(), autoincrement=True, nullable=False),
+                    sa.Column('name', sa.VARCHAR(), autoincrement=False, nullable=True),
+                    sa.Column('email', sa.VARCHAR(), autoincrement=False, nullable=True),
+                    sa.Column('message', sa.TEXT(), autoincrement=False, nullable=True),
+                    sa.Column('created_at', postgresql.TIMESTAMP(timezone=True),
+                              server_default=sa.text('now()'), autoincrement=False, nullable=True),
+                    sa.PrimaryKeyConstraint('id', name='contact_submissions_pkey')
+                    )
     op.create_index('ix_contact_submissions_name', 'contact_submissions', ['name'], unique=False)
     op.create_index('ix_contact_submissions_id', 'contact_submissions', ['id'], unique=False)
     op.create_index('ix_contact_submissions_email', 'contact_submissions', ['email'], unique=False)

@@ -13,14 +13,17 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 logger = logging.getLogger(__name__)
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str
+
 
 class User(BaseModel):
     username: str
     email: str
     password: str
+
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user(
@@ -41,6 +44,7 @@ async def register_user(
         logger.error(f"Error during user registration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
 @router.post("/token", response_model=Token)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -57,7 +61,8 @@ async def login(
     access_token = auth_manager.create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return Token(access_token=str(access_token), token_type="bearer")  # Ensure access_token is a string
+
 
 @router.get("/user/info")
 async def get_user_info(current_user: User = Depends(get_auth_manager().get_current_user)):

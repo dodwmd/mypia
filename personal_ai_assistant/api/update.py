@@ -7,8 +7,10 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 logger = logging.getLogger(__name__)
 
+
 def get_update_manager():
     return UpdateManager()
+
 
 @router.post("/check")
 async def check_for_updates(
@@ -26,6 +28,7 @@ async def check_for_updates(
         logger.error(f"Error checking for updates: {str(e)}")
         raise HTTPException(status_code=500, detail="Error checking for updates")
 
+
 @router.post("/apply")
 async def apply_updates(
     token: str = Depends(oauth2_scheme),
@@ -42,6 +45,7 @@ async def apply_updates(
     except Exception as e:
         logger.error(f"Error applying updates: {str(e)}")
         raise HTTPException(status_code=500, detail="Error applying updates")
+
 
 @router.get("/status")
 async def get_update_status(
