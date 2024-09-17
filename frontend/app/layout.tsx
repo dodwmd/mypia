@@ -1,8 +1,7 @@
 import React from 'react';
 import '../styles/globals.css';
-import dynamic from 'next/dynamic';
-
-const Sidebar = dynamic(() => import('../src/components/layout/Sidebar'), { ssr: false });
+import { AuthProvider } from '../src/contexts/AuthContext';
+import ClientLayout from '../src/components/ClientLayout';
 
 export default function RootLayout({
   children,
@@ -12,12 +11,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-background text-text">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 p-8 overflow-y-auto ml-64">
+        <AuthProvider>
+          <ClientLayout>
             {children}
-          </main>
-        </div>
+          </ClientLayout>
+        </AuthProvider>
       </body>
     </html>
   );

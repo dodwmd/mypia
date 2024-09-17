@@ -7,10 +7,7 @@ docker_build(
     '.',
     dockerfile='Dockerfile',
     build_args={'PYTHON_VERSION': '3.9'},
-    live_update=[
-        sync('.', '/app'),
-        run('poetry install', trigger=['./pyproject.toml', './poetry.lock']),
-    ]
+ignore=['**/__pycache__']
 )
 
 # Define resources for each service

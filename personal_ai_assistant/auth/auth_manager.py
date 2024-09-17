@@ -15,6 +15,7 @@ class AuthManager:
         self.db_manager = db_manager
         self.encryption_manager = encryption_manager
 
+
     def authenticate_user(self, username: str, password: str):
         db = next(self.db_manager.get_db())
         user = db.query(User).filter(User.username == username).first()
@@ -23,6 +24,7 @@ class AuthManager:
         if not self.encryption_manager.verify_password(password, user.hashed_password):
             return False
         return user
+
 
     def create_user(self, username: str, email: str, password: str):
         db = next(self.db_manager.get_db())
@@ -33,6 +35,7 @@ class AuthManager:
         db.refresh(user)
         return user
 
+
     def create_access_token(self, data: dict, expires_delta: timedelta = None) -> str:
         to_encode = data.copy()
         if expires_delta:
@@ -42,6 +45,7 @@ class AuthManager:
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, str(settings.secret_key), algorithm=settings.algorithm)
         return str(encoded_jwt)  # Ensure the return value is a string
+
 
     def get_current_user(self, token: str = Depends(oauth2_scheme)):
         credentials_exception = HTTPException(
@@ -61,5 +65,3 @@ class AuthManager:
         if user is None:
             raise credentials_exception
         return user
-
-    # Add other authentication-related methods here
