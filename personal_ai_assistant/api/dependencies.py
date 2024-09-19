@@ -28,7 +28,7 @@ def get_db_manager():
 
 @lru_cache()
 def get_encryption_manager():
-    return EncryptionManager(settings.encryption_key)
+    return EncryptionManager(settings.encryption_password.get_secret_value())
 
 
 @lru_cache()

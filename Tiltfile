@@ -1,30 +1,26 @@
 # Load the docker-compose file
 docker_compose('./docker-compose.yml')
 
-# Define the Docker build
-docker_build(
-    'mypia-app',
-    '.',
-    dockerfile='Dockerfile',
-    build_args={'PYTHON_VERSION': '3.9'},
-ignore=['**/__pycache__']
+# Define the Docker build context
+docker_build('personal-ai-assistant', '.',
+    dockerfile='Dockerfile'
 )
 
 # Define resources for each service
 dc_resource('nginx', labels=["web"])
-dc_resource('app', labels=["app"], image='mypia-app')
+dc_resource('app', labels=["app"])
 dc_resource('db', labels=["db"])
 dc_resource('redis', labels=["cache"])
-dc_resource('celery_worker', labels=["worker"], image='mypia-celery_beat')
-dc_resource('celery_beat', labels=["scheduler"], image='mypia-celery_worker')
-dc_resource('chroma_db', labels=["vector_db"])
-dc_resource('postman', labels=["testing"])
+dc_resource('celery_worker', labels=["worker"])
+dc_resource('celery_beat', labels=["scheduler"])
+dc_resource('chroma', labels=["vector_db"])
 
 # Configure file watching
 watch_file('./docker-compose.yml')
 watch_file('./Dockerfile')
 watch_file('./pyproject.toml')
 watch_file('./poetry.lock')
+watch_file('personal_ai_assistant')
 
 # Add a resource for running tests
 local_resource(
@@ -49,3 +45,4 @@ local_resource(
     labels=["frontend"],
     deps=['./frontend/src', './frontend/app']
 )
+

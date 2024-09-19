@@ -6,6 +6,7 @@ from personal_ai_assistant.models.user import User
 from personal_ai_assistant.utils.encryption import EncryptionManager
 from personal_ai_assistant.database.db_manager import DatabaseManager
 from personal_ai_assistant.config import settings
+from sqlalchemy.orm import Session
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v1/auth/token")
 
@@ -17,23 +18,26 @@ class AuthManager:
 
 
     def authenticate_user(self, username: str, password: str):
-        db = next(self.db_manager.get_db())
-        user = db.query(User).filter(User.username == username).first()
-        if not user:
-            return False
-        if not self.encryption_manager.verify_password(password, user.hashed_password):
-            return False
-        return user
+        with self.db_manager.get_db() as db:
+            user = db.query(User).filter(User.username == username).first()
+            if not user:
+                return False
+            if not self.encryption_manager.verify_password(password, user.hashed_password):
+                return False
+            return user
 
 
     def create_user(self, username: str, email: str, password: str):
-        db = next(self.db_manager.get_db())
-        hashed_password = self.encryption_manager.hash_password(password)
-        user = User(username=username, email=email, hashed_password=hashed_password)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
+        with self.db_manager.get_db() as db:
+            existing_user = db.query(User).filter(User.username == username).first()
+            if existing_user:
+                return None
+            hashed_password = self.encryption_manager.hash_password(password)
+            new_user = User(username=username, email=email, hashed_password=hashed_password)
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            return new_user
 
 
     def create_access_token(self, data: dict, expires_delta: timedelta = None) -> str:
@@ -60,8 +64,8 @@ class AuthManager:
                 raise credentials_exception
         except JWTError:
             raise credentials_exception
-        db = next(self.db_manager.get_db())
-        user = db.query(User).filter(User.username == username).first()
-        if user is None:
-            raise credentials_exception
-        return user
+        with self.db_manager.get_db() as db:
+            user = db.query(User).filter(User.username == username).first()
+            if user is None:
+                raise credentials_exception
+            return user

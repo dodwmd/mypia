@@ -1,8 +1,8 @@
-"""initial
+"""inital
 
-Revision ID: 62a464a17c9f
+Revision ID: 5a8d359076c3
 Revises: 
-Create Date: 2024-09-17 12:29:36.382348
+Create Date: 2024-09-18 15:23:35.674482
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '62a464a17c9f'
+revision: str = '5a8d359076c3'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -77,6 +77,14 @@ def upgrade() -> None:
     op.create_index(op.f('ix_contacts_email'), 'contacts', ['email'], unique=False)
     op.create_index(op.f('ix_contacts_id'), 'contacts', ['id'], unique=False)
     op.create_index(op.f('ix_contacts_name'), 'contacts', ['name'], unique=False)
+    op.create_table('documents',
+    sa.Column('id', sa.String(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('filename', sa.String(), nullable=False),
+    sa.Column('file_hash', sa.String(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('emails',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('subject', sa.String(), nullable=True),
@@ -126,6 +134,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_emails_subject'), table_name='emails')
     op.drop_index(op.f('ix_emails_id'), table_name='emails')
     op.drop_table('emails')
+    op.drop_table('documents')
     op.drop_index(op.f('ix_contacts_name'), table_name='contacts')
     op.drop_index(op.f('ix_contacts_id'), table_name='contacts')
     op.drop_index(op.f('ix_contacts_email'), table_name='contacts')

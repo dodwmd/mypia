@@ -6,5 +6,6 @@ from personal_ai_assistant.models.user_preference import UserPreference
 from personal_ai_assistant.models.note import Note
 from personal_ai_assistant.models.contact import Contact
 from personal_ai_assistant.models.email import Email
+from personal_ai_assistant.models.document import Document
 
-__all__ = ['User', 'Task', 'CalendarEvent', 'UserPreference', 'Note', 'Contact', 'Email']
+__all__ = ['User', 'Task', 'CalendarEvent', 'UserPreference', 'Note', 'Contact', 'Email', 'Document']

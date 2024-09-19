@@ -10,7 +10,8 @@ class BaseSettings(BaseSettings):
     model_dir: str = "/app/models"
     static_dir: str = "/app/static"
     database_url: str
-    chroma_db_path: str
+    chroma_db_host: str = "chroma"
+    chroma_db_port: int = 8000
     redis_url: str
     llm_model_path: str
     embedding_model: str
@@ -24,7 +25,7 @@ class BaseSettings(BaseSettings):
     caldav_username: str
     caldav_password: SecretStr
     github_token: SecretStr
-    encryption_key: Optional[str] = None
+    encryption_password: SecretStr
     backup_dir: str
     enable_multi_user: bool = False
     max_users: int = 1

@@ -1,46 +1,59 @@
-from personal_ai_assistant.celery_app import app
+from celery import shared_task
 from personal_ai_assistant.email.imap_client import EmailClient
 from personal_ai_assistant.vector_db.chroma_db import ChromaDBManager
-from personal_ai_assistant.database.db_manager import DatabaseManager
-from personal_ai_assistant.config import settings
-import asyncio
+from personal_ai_assistant.database.db_manager import db_manager
+from personal_ai_assistant.models.email import Email
 from datetime import datetime, timedelta
 
 
-@app.task
+@shared_task
 def check_and_process_new_emails():
-    email_client = EmailClient(settings.email_host, settings.smtp_host,
-                               settings.email_username, settings.email_password)
-    chroma_db = ChromaDBManager(settings.chroma_db_path)
-    db_manager = DatabaseManager(settings.database_url)
-
-    async def process_emails():
-        last_uid = chroma_db.get_latest_document_id("emails")
-        new_emails = await email_client.fetch_new_emails(last_uid=int(last_uid) if last_uid else 0)
+    email_client = EmailClient()
+    chroma_db = ChromaDBManager()
+    
+    with db_manager.SessionLocal() as db:
+        new_emails = email_client.fetch_new_emails()
         for email in new_emails:
-            document = f"Subject: {email['subject']}\n\nFrom: {email['from']}\n\nContent: {email['content']}"
-            metadata = {
-                'uid': email['uid'],
-                'subject': email['subject'],
-                'from': email['from'],
-                'date': email['date'].isoformat()
-            }
-            chroma_db.add_documents("emails", [document], [metadata], [str(email['uid'])])
-            db_manager.log_email(
-                user_id=1,  # Assuming a default user ID of 1
+            # Process and store email in the database
+            db_email = Email(
                 subject=email['subject'],
                 sender=email['from'],
-                recipient=settings.email_username,
-                is_sent=0  # 0 for received email
+                recipient=email['to'],
+                body=email['body'],
+                timestamp=email['date']
+            )
+            db.add(db_email)
+            db.commit()
+            db.refresh(db_email)
+
+            # Add email to vector database for semantic search
+            chroma_db.add_documents(
+                collection_name="emails",
+                documents=[email['body']],
+                metadatas=[{"subject": email['subject'], "date": str(email['date'])}],
+                ids=[str(db_email.id)]
             )
 
-    asyncio.run(process_emails())
 
-
-@app.task
+@shared_task
 def clean_up_old_emails():
-    chroma_db = ChromaDBManager(settings.chroma_db_path)
-    db_manager = DatabaseManager(settings.database_url)
-    thirty_days_ago = (datetime.utcnow() - timedelta(days=30)).isoformat()
-    chroma_db.delete_documents("emails", filter={"date": {"$lt": thirty_days_ago}})
-    db_manager.delete_old_email_logs(days=30)
+    chroma_db = ChromaDBManager()
+
+    with db_manager.SessionLocal() as db:
+        # Define the cutoff date (e.g., emails older than 30 days)
+        cutoff_date = datetime.utcnow() - timedelta(days=30)
+
+        # Query for old emails
+        old_emails = db.query(Email).filter(Email.timestamp < cutoff_date).all()
+
+        for email in old_emails:
+            # Remove from the database
+            db.delete(email)
+
+            # Remove from the vector database
+            chroma_db.delete_documents(
+                collection_name="emails",
+                filter={"id": str(email.id)}
+            )
+
+        db.commit()

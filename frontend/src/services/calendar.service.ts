@@ -10,7 +10,7 @@ export interface CalendarEvent {
 
 export async function getCalendarEvents(): Promise<CalendarEvent[]> {
   try {
-    const response = await api.get<{ events: CalendarEvent[] }>('/v1/calendar/events');
+    const response = await api.get<{ events: CalendarEvent[] }>('/calendar/events');
     return response.data.events.map(event => ({
       ...event,
       start: new Date(event.start),
@@ -24,7 +24,7 @@ export async function getCalendarEvents(): Promise<CalendarEvent[]> {
 
 export async function createCalendarEvent(event: Omit<CalendarEvent, 'id'>): Promise<CalendarEvent> {
   try {
-    const response = await api.post<{ event: CalendarEvent }>('/v1/calendar/events', {
+    const response = await api.post<{ event: CalendarEvent }>('/calendar/events', {
       ...event,
       start: event.start.toISOString(),
       end: event.end.toISOString()

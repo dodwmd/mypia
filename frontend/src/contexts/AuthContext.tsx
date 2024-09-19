@@ -1,99 +1,39 @@
 'use client';
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-}
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { login as apiLogin, logout as apiLogout, getCurrentUser } from '../services/auth.service';
 
 interface AuthContextType {
-  user: User | null;
+  user: any;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
-  isLoading: boolean;
+  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const token = Cookies.get('token');
-    if (token) {
-      fetchUserInfo(token);
-    } else {
-      setIsLoading(false);
-    }
+    const checkLoggedIn = async () => {
+      const user = await getCurrentUser();
+      setUser(user);
+    };
+    checkLoggedIn();
   }, []);
 
-  const fetchUserInfo = async (token: string) => {
-    try {
-      const response = await fetch('/v1/auth/user/info', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        Cookies.remove('token');
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Error fetching user info:', error);
-      Cookies.remove('token');
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const login = async (username: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/v1/auth/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          username,
-          password,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        Cookies.set('token', data.access_token, { expires: 7 });
-        await fetchUserInfo(data.access_token);
-        router.push('/');
-      } else {
-        throw new Error('Invalid username or password');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
+    const response = await apiLogin(username, password);
+    setUser(response.user);
   };
 
-  const logout = () => {
-    Cookies.remove('token');
+  const logout = async () => {
+    await apiLogout();
     setUser(null);
-    router.push('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -101,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

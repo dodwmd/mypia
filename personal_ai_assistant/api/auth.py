@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Form
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from pydantic import BaseModel, ValidationError
 from datetime import timedelta
 import logging
 
 from personal_ai_assistant.auth.auth_manager import AuthManager
 from personal_ai_assistant.config.config import settings
 from personal_ai_assistant.api.dependencies import get_auth_manager
-from personal_ai_assistant.models.user import User  # Add this import
+from personal_ai_assistant.models.user import User
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -47,26 +47,63 @@ async def register_user(
 
 @router.post("/token", response_model=Token)
 async def login(
+    request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_manager: AuthManager = Depends(get_auth_manager)
 ):
-    user = auth_manager.authenticate_user(form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+    try:
+        user = auth_manager.authenticate_user(form_data.username, form_data.password)
+        if not user:
+            logger.warning(f"Failed login attempt for username: {form_data.username}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+        access_token = auth_manager.create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
         )
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-    access_token = auth_manager.create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    return Token(access_token=str(access_token), token_type="bearer")
+        
+        # Set the access token in an HTTP-only cookie
+        response.set_cookie(
+            key="access_token", 
+            value=f"Bearer {access_token}", 
+            httponly=True, 
+            max_age=settings.access_token_expire_minutes * 60,
+            samesite="lax",
+            secure=not settings.debug  # Set to True in production
+        )
+        
+        logger.info(f"Successful login for user: {user.username}")
+        return Token(access_token=access_token, token_type="bearer")
+    except ValidationError as ve:
+        logger.error(f"Validation error during login: {str(ve)}")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(ve))
+    except Exception as e:
+        logger.error(f"Unexpected error during login: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred")
+
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie(key="access_token")
+    return {"message": "Logged out successfully"}
 
 @router.get("/user/info", response_model=UserResponse)
 async def get_user_info(
-    auth_manager: AuthManager = Depends(get_auth_manager),
-    token: str = Depends(oauth2_scheme)
+    token: str = Depends(oauth2_scheme),
+    auth_manager: AuthManager = Depends(get_auth_manager)
 ):
-    current_user = auth_manager.get_current_user(token)
-    return UserResponse(username=current_user.username, email=current_user.email)
+    try:
+        current_user = auth_manager.get_current_user(token)
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return UserResponse(username=current_user.username, email=current_user.email)
+    except Exception as e:
+        logger.error(f"Error in get_user_info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
